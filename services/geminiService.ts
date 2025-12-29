@@ -1,24 +1,38 @@
 import { WorkPlan } from "../types.ts";
 
-// שליפת המפתח מ-Vite/Netlify
+/**
+ * פונקציה חכמה לשליפת המפתח.
+ * היא בודקת את כל האפשרויות (Vite, Node, או מחרוזת ריקה) בלי לקרוס.
+ */
 const getApiKey = (): string => {
   try {
-    // @ts-ignore
-    return import.meta.env?.VITE_GEMINI_API_KEY || "";
-  } catch (e) {
-    return "";
-  }
+    // @ts-ignore - בדיקה בטוחה עבור Vite
+    if (typeof import.meta !== 'undefined' && import.meta?.env) {
+      // @ts-ignore
+      return import.meta.env.VITE_GEMINI_API_KEY || "";
+    }
+  } catch (e) {}
+
+  try {
+    // @ts-ignore - בדיקה בטוחה עבור סביבות אחרות
+    if (typeof process !== 'undefined' && process?.env) {
+      // @ts-ignore
+      return process.env.VITE_GEMINI_API_KEY || "";
+    }
+  } catch (e) {}
+
+  return "";
 };
 
 const API_KEY = getApiKey();
 
-/**
- * פונקציה חסינה לשליחת בקשה ל-Gemini
- */
 async function callGeminiAPI(prompt: string, systemInstruction: string) {
-  if (!API_KEY) throw new Error("Missing API Key");
+  // אם אין מפתח, לא ננסה אפילו לשלוח בקשה כדי למנוע שגיאות 404/400
+  if (!API_KEY) {
+    console.warn("API Key is missing. AI features will not work until key is provided.");
+    throw new Error("Missing API Key");
+  }
 
-  // שימוש ב-v1beta עם השם המלא של המודל
   const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
   
   const payload = {
@@ -39,7 +53,6 @@ async function callGeminiAPI(prompt: string, systemInstruction: string) {
   const responseData = await response.json();
 
   if (!response.ok) {
-    console.error("Gemini API Error details:", responseData);
     throw new Error(responseData.error?.message || 'API request failed');
   }
 
