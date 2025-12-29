@@ -4,10 +4,7 @@ import { WorkPlan } from "../types.ts";
 
 const cleanJsonString = (str: string) => {
   if (!str) return "{}";
-  // הסרת תגיות Markdown של קוד JSON אם קיימות
   let cleaned = str.replace(/```json/g, '').replace(/```/g, '').trim();
-  
-  // חיפוש האובייקט הראשון והאחרון למקרה שיש טקסט מיותר מסביב
   const startIdx = cleaned.indexOf('{');
   const endIdx = cleaned.lastIndexOf('}');
   const startArrIdx = cleaned.indexOf('[');
@@ -24,36 +21,32 @@ const cleanJsonString = (str: string) => {
 const EXPERT_SYSTEM_INSTRUCTION = `
 אתה "אסטרטג-על" בכיר המתמחה בשירותים פסיכולוגיים ציבוריים (שפ"ח).
 תפקידך לסייע למנהלים לבנות תוכנית עבודה מקצועית, חדה ואסטרטגית.
-חשוב: גם אם המידע שסופק חלקי, השתמש בידע המקצועי הרחב שלך כדי להציע רעיונות רלוונטיים ומעוררי השראה.
-עליך להחזיר תמיד אך ורק JSON תקין ומדויק לפי הסכימה המבוקשת.
-בלי הקדמות, בלי סיומות, ובלי "אני לא יכול".
+חשוב: גם אם המידע שסופק חלקי, השתמש בידע המקצועי הרחב שלך כדי להציע רעיונות רלוונטיים.
+עליך להחזיר תמיד אך ורק JSON תקין.
 `;
 
 /**
- * פונקציה לבדיקת מפתח והתחברות.
- * עבור מודלים Pro, המערכת תדרוש בחירת מפתח אם לא קיים.
+ * פונקציה ליצירת לקוח AI. 
+ * אינה חוסמת אם המפתח חסר ב-process.env, אלא מאפשרת למערכת לנסות ולהשתמש במפתח המוזרק.
  */
-async function getAIClient(requireProSelection = false) {
-  if (requireProSelection && window.aistudio) {
+async function createAIInstance(requirePro = false) {
+  if (requirePro && window.aistudio) {
     const hasKey = await window.aistudio.hasSelectedApiKey();
     if (!hasKey) {
       await window.aistudio.openSelectKey();
-      // לפי ההנחיות: MUST assume the key selection was successful after triggering openSelectKey and proceed.
+      // ממשיכים מיד לאחר פתיחת הדיאלוג לפי ההנחיות
     }
   }
-  
-  // המפתח מוזרק אוטומטית ל-process.env.API_KEY
-  const apiKey = process.env.API_KEY || "";
-  return new GoogleGenAI({ apiKey });
+  // משתמשים במפתח שקיים ב-process.env.API_KEY (מוזרק אוטומטית ב-Preview או לאחר בחירה)
+  return new GoogleGenAI({ apiKey: process.env.API_KEY || "" });
 }
 
 export async function getMentorAdvice(stage: string, currentData: any) {
   try {
-    const ai = await getAIClient();
+    const ai = await createAIInstance();
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: `שלב נוכחי: ${stage}. נתוני תוכנית: ${JSON.stringify(currentData)}.
-      תן ייעוץ אסטרטגי קצר, דוגמה לניסוח מעולה ותובנה פילוסופית על ניהול בשלב זה.`,
+      contents: `שלב נוכחי: ${stage}. נתונים: ${JSON.stringify(currentData)}. תן ייעוץ קצר, דוגמה ותובנה.`,
       config: {
         systemInstruction: EXPERT_SYSTEM_INSTRUCTION,
         responseMimeType: "application/json",
@@ -72,20 +65,17 @@ export async function getMentorAdvice(stage: string, currentData: any) {
     });
     return JSON.parse(cleanJsonString(response.text));
   } catch (error) {
-    console.error("AI Advice Error:", error);
+    console.error("Advice Error:", error);
     return null;
   }
 }
 
 export async function generateFunnelDraft(type: string, currentData: any) {
   try {
-    const ai = await getAIClient();
-    const prompt = `בהתבסס על הנתונים הבאים: ${JSON.stringify(currentData)},
-    ייצר 3 הצעות ל${type} (מטרות/יעדים/משימות) שמתאימות לשפ"ח מקצועי.`;
-
+    const ai = await createAIInstance();
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: prompt,
+      contents: `ייצר 3 הצעות ל${type} עבור שפ"ח על בסיס: ${JSON.stringify(currentData)}`,
       config: {
         systemInstruction: EXPERT_SYSTEM_INSTRUCTION,
         responseMimeType: "application/json",
@@ -98,21 +88,18 @@ export async function generateFunnelDraft(type: string, currentData: any) {
     });
     return JSON.parse(cleanJsonString(response.text));
   } catch (error) {
-    console.error("AI Draft Error:", error);
+    console.error("Draft Error:", error);
     return { items: [] };
   }
 }
 
 export async function integrateFullPlanWithAI(plan: WorkPlan): Promise<WorkPlan> {
   try {
-    // מודל Pro דורש התייחסות למפתח המשתמש
-    const ai = await getAIClient(true);
-    const prompt = `בצע שכתוב אסטרטגי מלא ואינטגרציה לכל חלקי התוכנית: ${JSON.stringify(plan)}.
-    הפוך את השפה למקצועית ביותר. הוסף תובנות AI (aiInsight) לכל יעד וחידודים (aiRefinement) לכל מטרה.`;
-
+    // מודל Pro דורש בחירת מפתח מפורשת במידת הצורך
+    const ai = await createAIInstance(true);
     const response = await ai.models.generateContent({
       model: 'gemini-3-pro-preview',
-      contents: prompt,
+      contents: `בצע שכתוב אסטרטגי מלא: ${JSON.stringify(plan)}`,
       config: {
         systemInstruction: EXPERT_SYSTEM_INSTRUCTION,
         responseMimeType: "application/json",
@@ -160,7 +147,7 @@ export async function integrateFullPlanWithAI(plan: WorkPlan): Promise<WorkPlan>
     return JSON.parse(cleanJsonString(text));
   } catch (error: any) {
     console.error("Integration Error:", error);
-    // אם המפתח נדחה, מאפסים ומבקשים שוב
+    // אם המפתח נדחה או חסר, פתח את הדיאלוג ונסה שוב
     if (error.message?.includes("Requested entity was not found") && window.aistudio) {
       await window.aistudio.openSelectKey();
     }

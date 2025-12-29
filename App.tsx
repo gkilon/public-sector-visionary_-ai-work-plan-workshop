@@ -86,17 +86,13 @@ function App() {
           updatePlan({ goals: plan.goals.map(g => g.id === parentId ? { ...g, tasks: [...g.tasks, ...newTasks] } : g) });
         }
       } else {
-        // אם ה-AI לא החזיר כלום, נסה לבדוק אם מפתח ה-API חסר
-        if (!process.env.API_KEY && window.aistudio) {
-           await window.aistudio.openSelectKey();
-           alert("אנא הגדר מפתח API כדי לאפשר את יכולות ה-AI.");
-        } else {
-           alert("ה-AI לא הצליח לגבש הצעה בשלב זה. נסה להוסיף עוד פרטים בתוכנית.");
+        // אם לא הוחזרו נתונים, ייתכן שנדרש מפתח
+        if (window.aistudio) {
+          await window.aistudio.openSelectKey();
         }
       }
     } catch (e: any) { 
       console.error(e);
-      alert("שגיאה בחיבור לשרת ה-AI. וודא שמפתח ה-API תקין.");
     } finally { 
       setIsAiDrafting(null); 
     }
@@ -109,11 +105,11 @@ function App() {
       const enhanced = await integrateFullPlanWithAI(plan);
       if (enhanced) {
         setPlan(enhanced);
-        alert("התוכנית שודרגה בהצלחה בעזרת מומחה אסטרטגי!");
+        alert("התוכנית שודרגה בהצלחה!");
       }
     } catch (e) {
       console.error(e);
-      alert("האינטגרציה נכשלה. וודא שמפתח ה-API מוגדר כראוי (ייתכן שנדרש מפתח של פרויקט בתשלום עבור מודל ה-Pro).");
+      alert("הפעולה נכשלה. אנא וודא שהגדרת מפתח API תקין דרך כפתור ההגדרות.");
     } finally { 
       setIsIntegrating(false); 
     }
