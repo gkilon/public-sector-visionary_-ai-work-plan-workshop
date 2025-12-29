@@ -2,6 +2,22 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { WorkPlan } from "../types.ts";
 
+/**
+ * גישה בטוחה למפתח ה-API כדי למנוע ReferenceError בסביבות דפדפן רגילות.
+ */
+const getSafeApiKey = (): string => {
+  try {
+    // @ts-ignore
+    if (typeof process !== 'undefined' && process.env && process.env.API_KEY) {
+      // @ts-ignore
+      return process.env.API_KEY;
+    }
+  } catch (e) {
+    console.warn("Process env is not accessible safely");
+  }
+  return "";
+};
+
 const cleanJsonString = (str: string) => {
   if (!str) return "{}";
   let cleaned = str.replace(/```json/g, '').replace(/```/g, '').trim();
@@ -24,21 +40,21 @@ const EXPERT_SYSTEM_INSTRUCTION = `
 עליך להחזיר אך ורק JSON תקין.
 `;
 
-/**
- * פונקציה ליצירת לקוח AI. 
- * אם אין מפתח ב-process.env, פותחת את הדיאלוג לבחירת מפתח.
- */
 async function createAIInstance() {
-  // אם אין מפתח API מוזרק, ננסה לפתוח את הדיאלוג של המערכת
-  if (!process.env.API_KEY && window.aistudio) {
+  const apiKey = getSafeApiKey();
+  
+  // אם אין מפתח ב-process.env, ננסה לבדוק אם אנחנו בסביבת AI Studio שמאפשרת בחירה
+  // @ts-ignore
+  if (!apiKey && window.aistudio) {
+    // @ts-ignore
     const hasKey = await window.aistudio.hasSelectedApiKey();
     if (!hasKey) {
+      // @ts-ignore
       await window.aistudio.openSelectKey();
     }
   }
   
-  // יצירת מופע חדש בכל פעם כדי להשתמש במפתח המעודכן ביותר
-  return new GoogleGenAI({ apiKey: process.env.API_KEY || "" });
+  return new GoogleGenAI({ apiKey: getSafeApiKey() });
 }
 
 export async function getMentorAdvice(stage: string, currentData: any) {
@@ -65,8 +81,10 @@ export async function getMentorAdvice(stage: string, currentData: any) {
     });
     return JSON.parse(cleanJsonString(response.text));
   } catch (error: any) {
-    console.error("Advice Error:", error);
+    console.error("Advice Error Details:", error);
+    // @ts-ignore
     if (error.message?.includes("Requested entity was not found") && window.aistudio) {
+      // @ts-ignore
       await window.aistudio.openSelectKey();
     }
     return null;
@@ -91,8 +109,10 @@ export async function generateFunnelDraft(type: string, currentData: any) {
     });
     return JSON.parse(cleanJsonString(response.text));
   } catch (error: any) {
-    console.error("Draft Error:", error);
+    console.error("Draft Error Details:", error);
+    // @ts-ignore
     if (error.message?.includes("Requested entity was not found") && window.aistudio) {
+      // @ts-ignore
       await window.aistudio.openSelectKey();
     }
     return { items: [] };
@@ -151,8 +171,10 @@ export async function integrateFullPlanWithAI(plan: WorkPlan): Promise<WorkPlan>
     if (!text) throw new Error("Empty response");
     return JSON.parse(cleanJsonString(text));
   } catch (error: any) {
-    console.error("Integration Error:", error);
+    console.error("Integration Error Details:", error);
+    // @ts-ignore
     if (error.message?.includes("Requested entity was not found") && window.aistudio) {
+      // @ts-ignore
       await window.aistudio.openSelectKey();
     }
     throw error;
