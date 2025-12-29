@@ -2,26 +2,28 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { WorkPlan } from "../types.ts";
 
+// פונקציית עזר לניקוי הטקסט מהמודל לפני פענוח JSON
+const cleanJsonString = (str: string) => {
+  return str.replace(/```json/g, '').replace(/```/g, '').trim();
+};
+
 const EXPERT_SYSTEM_INSTRUCTION = `
 אתה "אסטרטג-על" ויועץ בכיר למנהלי שירותים פסיכולוגיים ציבוריים.
 תפקידך לשדרג תוכניות עבודה גולמיות לתוצר ברמה של מנכ"ל.
 אתה מתמקד בשימוש נכון ב-SWOT, חזון ואילוצים כדי ליצור מטרות ויעדים קוהרנטיים.
 הפלט חייב להיות JSON סדור ומדויק בלבד.
-אל תוסיף הסברים או טקסט מחוץ ל-JSON.
+אל תוסיף הסברים, הקדמות או סיומות. רק את ה-JSON עצמו.
 `;
 
 export async function getMentorAdvice(stage: string, currentData: any) {
   const apiKey = process.env.API_KEY;
-  if (!apiKey) {
-    console.error("API_KEY missing");
-    return null;
-  }
+  if (!apiKey) return null;
   const ai = new GoogleGenAI({ apiKey });
 
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: `שלב נוכחי בסדנה: ${stage}. נתוני התוכנית: ${JSON.stringify(currentData)}. תן ייעוץ קצר וממוקד למנהל.`,
+      contents: `שלב נוכחי: ${stage}. נתוני תוכנית: ${JSON.stringify(currentData)}. תן ייעוץ אסטרטגי קצר וממוקד.`,
       config: {
         systemInstruction: EXPERT_SYSTEM_INSTRUCTION,
         responseMimeType: "application/json",
@@ -38,7 +40,7 @@ export async function getMentorAdvice(stage: string, currentData: any) {
         }
       }
     });
-    return JSON.parse(response.text || "{}");
+    return JSON.parse(cleanJsonString(response.text || "{}"));
   } catch (error) {
     console.error("AI Advice Error:", error);
     return null;
@@ -51,7 +53,7 @@ export async function generateFunnelDraft(stage: string, currentData: any) {
   const ai = new GoogleGenAI({ apiKey });
 
   try {
-    const prompt = `בהתבסס על הנתונים הבאים: ${JSON.stringify(currentData)}, ייצר 3 הצעות ל${stage} מקצועיות לשירות פסיכולוגי ציבורי.`;
+    const prompt = `על סמך הנתונים: ${JSON.stringify(currentData)}, הצע 3 פריטים ל${stage} שמתאימים לשפ"ח (שירות פסיכולוגי חינוכי).`;
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: prompt,
@@ -65,7 +67,7 @@ export async function generateFunnelDraft(stage: string, currentData: any) {
         }
       }
     });
-    return JSON.parse(response.text || '{"items":[]}');
+    return JSON.parse(cleanJsonString(response.text || '{"items":[]}'));
   } catch (error) {
     console.error("AI Draft Error:", error);
     return { items: [] };
@@ -78,7 +80,7 @@ export async function integrateFullPlanWithAI(plan: WorkPlan): Promise<WorkPlan>
   const ai = new GoogleGenAI({ apiKey });
 
   try {
-    const prompt = `בצע שכתוב אסטרטגי מלא לכל חלקי התוכנית: ${JSON.stringify(plan)}. הפוך אותה לחדה ומקצועית.`;
+    const prompt = `בצע שכתוב אסטרטגי מלא לכל חלקי התוכנית: ${JSON.stringify(plan)}. הפוך אותה לחדה, מקצועית וקוהרנטית. וודא שהמשימות תומכות ביעדים והיעדים תומכים במטרות.`;
     const response = await ai.models.generateContent({
       model: 'gemini-3-pro-preview',
       contents: prompt,
@@ -124,10 +126,10 @@ export async function integrateFullPlanWithAI(plan: WorkPlan): Promise<WorkPlan>
       }
     });
 
-    const enhancedData = JSON.parse(response.text || "{}");
+    const enhancedData = JSON.parse(cleanJsonString(response.text || "{}"));
     return { ...plan, ...enhancedData };
   } catch (error) {
     console.error("Integration Error:", error);
-    return plan;
+    throw error;
   }
 }
