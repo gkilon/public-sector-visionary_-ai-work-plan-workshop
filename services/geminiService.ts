@@ -20,17 +20,18 @@ async function callGeminiAPI(prompt: string, systemInstruction: string) {
     throw new Error("Missing API Key.");
   }
 
-  // עדכון הכתובת לגרסה v1 (יציבה יותר) ושם מודל מלא
-  const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
+  // חזרנו ל-v1beta כי היא גמישה יותר עם פיצ'רים כמו JSON Mode
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
   
   const response = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
+      // שינוי קריטי: שמות השדות חייבים להיות עם קו תחתון (snake_case)
       system_instruction: { parts: [{ text: systemInstruction }] },
       contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { 
-        responseMimeType: "application/json",
+      generation_config: { 
+        response_mime_type: "application/json",
         temperature: 0.7
       }
     })
@@ -38,23 +39,6 @@ async function callGeminiAPI(prompt: string, systemInstruction: string) {
 
   if (!response.ok) {
     const errorData = await response.json();
-    // אם v1 לא עובד, נסה אוטומטית את v1beta עם השם המלא
-    if (response.status === 404) {
-        const fallbackUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
-        const fallbackResponse = await fetch(fallbackUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                system_instruction: { parts: [{ text: systemInstruction }] },
-                contents: [{ parts: [{ text: prompt }] }],
-                generationConfig: { responseMimeType: "application/json" }
-            })
-        });
-        if (fallbackResponse.ok) {
-            const fallbackData = await fallbackResponse.json();
-            return fallbackData.candidates[0].content.parts[0].text;
-        }
-    }
     throw new Error(errorData.error?.message || 'API request failed');
   }
 
