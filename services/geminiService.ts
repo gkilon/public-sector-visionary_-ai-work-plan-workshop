@@ -3,11 +3,20 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { WorkPlan } from "../types.ts";
 
 /**
- * פונקציית עזר לניקוי תגובות JSON מהמודל
+ * פונקציה לקבלת מפתח ה-API בצורה בטוחה.
+ * מונעת קריסה של הסקריפט אם המשתנה לא קיים בסביבה.
  */
+const getApiKey = (): string => {
+  try {
+    // @ts-ignore
+    return process.env.API_KEY || "";
+  } catch (e) {
+    return "";
+  }
+};
+
 const cleanJsonString = (str: string | undefined): string => {
   if (!str) return "{}";
-  // הסרת סימני Markdown של קוד אם קיימים
   let cleaned = str.replace(/```json/g, '').replace(/```/g, '').trim();
   const startIdx = cleaned.indexOf('{');
   const endIdx = cleaned.lastIndexOf('}');
@@ -25,18 +34,19 @@ const cleanJsonString = (str: string | undefined): string => {
 const EXPERT_SYSTEM_INSTRUCTION = `
 אתה "אסטרטג-על" בכיר המתמחה בשירותים פסיכולוגיים ציבוריים (שפ"ח).
 תפקידך לסייע למנהלים לבנות תוכנית עבודה מקצועית, חדה ואסטרטגית.
-עליך להחזיר אך ורק JSON תקין ומדויק לפי הסכימה המבוקשת.
+עליך להחזיר תמיד אך ורק JSON תקין התואם לסכימה המבוקשת.
+היה קונקרטי, מקצועי וחד.
 `;
 
-/**
- * ייעוץ מנטור לשלב ספציפי
- */
 export async function getMentorAdvice(stage: string, currentData: any) {
+  const apiKey = getApiKey();
+  if (!apiKey) return null;
+
   try {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const ai = new GoogleGenAI({ apiKey });
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: `שלב נוכחי: ${stage}. נתונים קיימים: ${JSON.stringify(currentData)}. ספק ייעוץ אסטרטגי, דוגמה מעשית ותובנה ניהולית.`,
+      contents: `שלב: ${stage}. נתונים: ${JSON.stringify(currentData)}. ספק ייעוץ קצר, דוגמה ותובנה.`,
       config: {
         systemInstruction: EXPERT_SYSTEM_INSTRUCTION,
         responseMimeType: "application/json",
@@ -55,20 +65,20 @@ export async function getMentorAdvice(stage: string, currentData: any) {
     });
     return JSON.parse(cleanJsonString(response.text));
   } catch (error) {
-    console.error("Gemini Advice Error:", error);
+    console.error("Mentor AI Error:", error);
     return null;
   }
 }
 
-/**
- * יצירת טיוטת רעיונות (מטרות/יעדים/משימות)
- */
 export async function generateFunnelDraft(type: string, currentData: any) {
+  const apiKey = getApiKey();
+  if (!apiKey) return { items: [] };
+
   try {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const ai = new GoogleGenAI({ apiKey });
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: `ייצר 3 הצעות קונקרטיות ל${type} עבור שפ"ח על בסיס המידע: ${JSON.stringify(currentData)}`,
+      contents: `ייצר 3 הצעות ל${type} עבור שפ"ח על בסיס: ${JSON.stringify(currentData)}`,
       config: {
         systemInstruction: EXPERT_SYSTEM_INSTRUCTION,
         responseMimeType: "application/json",
@@ -83,20 +93,20 @@ export async function generateFunnelDraft(type: string, currentData: any) {
     });
     return JSON.parse(cleanJsonString(response.text));
   } catch (error) {
-    console.error("Gemini Draft Error:", error);
+    console.error("Draft AI Error:", error);
     return { items: [] };
   }
 }
 
-/**
- * אינטגרציה סופית של כל התוכנית
- */
 export async function integrateFullPlanWithAI(plan: WorkPlan): Promise<WorkPlan> {
+  const apiKey = getApiKey();
+  if (!apiKey) throw new Error("API Key missing");
+
   try {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const ai = new GoogleGenAI({ apiKey });
     const response = await ai.models.generateContent({
       model: 'gemini-3-pro-preview',
-      contents: `בצע שכתוב אסטרטגי ואינטגרציה מלאה לכל תוכנית העבודה: ${JSON.stringify(plan)}`,
+      contents: `בצע שכתוב אסטרטגי מלא: ${JSON.stringify(plan)}`,
       config: {
         systemInstruction: EXPERT_SYSTEM_INSTRUCTION,
         responseMimeType: "application/json",
@@ -107,11 +117,7 @@ export async function integrateFullPlanWithAI(plan: WorkPlan): Promise<WorkPlan>
               type: Type.ARRAY,
               items: {
                 type: Type.OBJECT,
-                properties: { 
-                  id: { type: Type.STRING }, 
-                  title: { type: Type.STRING }, 
-                  aiRefinement: { type: Type.STRING } 
-                },
+                properties: { id: { type: Type.STRING }, title: { type: Type.STRING }, aiRefinement: { type: Type.STRING } },
                 required: ["id", "title", "aiRefinement"]
               }
             },
@@ -128,13 +134,7 @@ export async function integrateFullPlanWithAI(plan: WorkPlan): Promise<WorkPlan>
                     type: Type.ARRAY,
                     items: {
                       type: Type.OBJECT,
-                      properties: { 
-                        id: { type: Type.STRING }, 
-                        description: { type: Type.STRING }, 
-                        owner: { type: Type.STRING }, 
-                        deadline: { type: Type.STRING }, 
-                        isAiSuggested: { type: Type.BOOLEAN } 
-                      },
+                      properties: { id: { type: Type.STRING }, description: { type: Type.STRING }, owner: { type: Type.STRING }, deadline: { type: Type.STRING }, isAiSuggested: { type: Type.BOOLEAN } },
                       required: ["id", "description", "owner", "deadline", "isAiSuggested"]
                     }
                   }
@@ -150,10 +150,10 @@ export async function integrateFullPlanWithAI(plan: WorkPlan): Promise<WorkPlan>
     });
 
     const text = response.text;
-    if (!text) throw new Error("Empty AI Response");
+    if (!text) throw new Error("Empty response");
     return JSON.parse(cleanJsonString(text));
   } catch (error) {
-    console.error("Gemini Integration Error:", error);
+    console.error("Integration AI Error:", error);
     throw error;
   }
 }
