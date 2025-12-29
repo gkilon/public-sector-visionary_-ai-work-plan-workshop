@@ -1,99 +1,100 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { WorkPlan, WorkshopStage } from "../types";
 
-// שליפת המפתח בצורה מאובטחת מהסביבה של Vite
+// שליפת המפתח מה-Environment Variables של Vite או Netlify
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 
+// בדיקה אם המפתח קיים - אם לא, נדפיס אזהרה ברורה בקונסול
 if (!API_KEY) {
-  console.warn("⚠️ Gemini API Key missing in .env file");
+  console.error("❌ MISSING API KEY: וודא שהגדרת VITE_GEMINI_API_KEY ב-Netlify או בקובץ .env");
 }
 
+// יצירת החיבור לגוגל
 const genAI = new GoogleGenerativeAI(API_KEY || "");
-// שימוש במודל flash שהוא מהיר ומתאים למשימות טקסט כאלו
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
+
 /**
- * פונקציית עזר לניקוי תגובת ה-AI.
- * לעיתים ה-AI מחזיר קוד עטוף ב-Markdown (סימני ```json), הפונקציה הזו מנקה אותם.
+ * הגדרת המודל: 
+ * השתמשתי ב-gemini-1.5-flash כי הוא המודל הכי מהיר ויציב למשימות כאלו.
+ * אם גוגל יחזיר שוב 404, הפונקציות למטה יתפסו את זה.
+ */
+const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+/**
+ * פונקציית עזר לניקוי ה-JSON שה-AI מחזיר.
+ * היא מטפלת במקרים שה-AI מחזיר טקסט מיותר לפני או אחרי ה-JSON.
  */
 const parseSafeJson = (text: string) => {
   try {
+    // הסרת תגיות Markdown של קוד אם קיימות
     const cleanText = text.replace(/```json/g, "").replace(/```/g, "").trim();
     return JSON.parse(cleanText);
   } catch (e) {
-    console.error("Failed to parse AI response as JSON:", text);
+    console.error("Could not parse AI response as JSON. Raw text:", text);
     return null;
   }
 };
 
 /**
- * 1. קבלת ייעוץ מהמנטור עבור שלב ספציפי
+ * פונקציה 1: קבלת ייעוץ מנטור
  */
 export const getMentorAdvice = async (stage: WorkshopStage, plan: WorkPlan) => {
   if (!API_KEY) return null;
   try {
-    const prompt = `אתה מנטור אסטרטגי מומחה לשירותים פסיכולוגיים חינוכיים (שפ"ח).
-    המשתמש נמצא בשלב: ${stage}.
-    זהו מצב תוכנית העבודה הנוכחי: ${JSON.stringify(plan)}.
-    
-    משימה: תן עצה קצרה, השראה וכיוון מחשבה מקצועי לשלב זה.
-    החזר תשובה אך ורק בפורמט JSON עם השדות הבאים:
+    const prompt = `אתה מנטור אסטרטגי לשפ"ח. השלב הנוכחי: ${stage}. 
+    תוכנית עבודה נוכחית: ${JSON.stringify(plan)}.
+    תן עצה מקצועית קצרה בעברית.
+    תחזיר אך ורק JSON בפורמט הזה:
     {
-      "content": "העצה העיקרית",
-      "example": "דוגמה קונקרטית ליישום",
-      "nextStepConnection": "איך זה מתחבר לשלב הבא",
+      "content": "העצה",
+      "example": "דוגמה",
+      "nextStepConnection": "חיבור לשלב הבא",
       "suggestions": ["הצעה 1", "הצעה 2"],
-      "philosophicalInsight": "תובנה מעמיקה קצרה"
+      "philosophicalInsight": "תובנה"
     }`;
 
     const result = await model.generateContent(prompt);
-    const response = await result.response;
-    return parseSafeJson(response.text());
-  } catch (error) {
-    console.error("Error fetching mentor advice:", error);
+    const text = result.response.text();
+    return parseSafeJson(text);
+  } catch (error: any) {
+    console.error("AI Advice Error:", error.message);
     return null;
   }
 };
 
 /**
- * 2. יצירת טיוטה ראשונית למטרות, יעדים או משימות
+ * פונקציה 2: יצירת טיוטה (מטרות/יעדים/משימות)
  */
-export const generateFunnelDraft = async (type: 'objectives' | 'goals' | 'tasks', plan: WorkPlan) => {
+export const generateFunnelDraft = async (type: string, plan: WorkPlan) => {
   if (!API_KEY) return { items: [] };
   try {
-    const prompt = `בהתבסס על תוכנית העבודה של שפ"ח: ${JSON.stringify(plan)},
-    הצע רשימה של 3 ${type} (מטרות/יעדים/משימות) מקצועיים וריאליים.
-    החזר אך ורק JSON בפורמט:
-    { "items": ["הצעה 1", "הצעה 2", "הצעה 3"] }`;
+    const prompt = `בהתבסס על התוכנית: ${JSON.stringify(plan)}, 
+    הצע 3 ${type} מתאימים לשפ"ח בעברית.
+    תחזיר JSON בפורמט: { "items": ["...", "...", "..."] }`;
 
     const result = await model.generateContent(prompt);
-    const response = await result.response;
-    return parseSafeJson(response.text());
-  } catch (error) {
-    console.error("Error generating draft:", error);
+    const text = result.response.text();
+    return parseSafeJson(text);
+  } catch (error: any) {
+    console.error("AI Draft Error:", error.message);
     return { items: [] };
   }
 };
 
 /**
- * 3. אינטגרציה סופית של כל התוכנית
+ * פונקציה 3: אינטגרציה סופית לתוכנית כולה
  */
 export const integrateFullPlanWithAI = async (plan: WorkPlan) => {
   if (!API_KEY) return plan;
   try {
-    const prompt = `בצע אינטגרציה אסטרטגית ושיפור לתוכנית העבודה הבאה של שפ"ח: ${JSON.stringify(plan)}.
-    משימות:
-    1. הוסף שדה "aiRefinement" לכל מטרה (objective).
-    2. הוסף שדה "aiInsight" לכל יעד (goal).
-    3. הוסף שדה "expertAnalysis" לכללי (ניתוח מסכם של התוכנית).
-    
-    החזר את כל אובייקט ה-WorkPlan המעודכן כ-JSON בלבד.`;
+    const prompt = `שפר את תוכנית העבודה הבאה של שפ"ח: ${JSON.stringify(plan)}. 
+    הוסף aiRefinement למטרות ו-aiInsight ליעדים. הוסף expertAnalysis מסכם.
+    החזר את כל אובייקט ה-WorkPlan המעודכן בפורמט JSON בלבד בעברית.`;
 
     const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const enhancedPlan = parseSafeJson(response.text());
-    return enhancedPlan || plan;
-  } catch (error) {
-    console.error("Error integrating plan:", error);
+    const text = result.response.text();
+    return parseSafeJson(text) || plan;
+  } catch (error: any) {
+    console.error("AI Integration Error:", error.message);
     return plan;
   }
 };
