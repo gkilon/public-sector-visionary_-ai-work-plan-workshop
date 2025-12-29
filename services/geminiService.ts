@@ -1,10 +1,6 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { WorkPlan } from "../types.ts";
 
-/**
- * פונקציה לשליפת המפתח בצורה בטוחה. 
- * משתמשת ב-import.meta.env שמתאים ל-Vite ול-Netlify.
- */
 const getSafeApiKey = (): string => {
   try {
     // @ts-ignore
@@ -13,7 +9,7 @@ const getSafeApiKey = (): string => {
       return import.meta.env.VITE_GEMINI_API_KEY || "";
     }
   } catch (e) {
-    console.warn("Could not find environment variables");
+    console.warn("Env access failed");
   }
   return "";
 };
@@ -41,19 +37,6 @@ const EXPERT_SYSTEM_INSTRUCTION = `
 `;
 
 async function createAIInstance() {
-  const apiKey = getSafeApiKey();
-  
-  // תמיכה ב-AI Studio ליתר ביטחון
-  // @ts-ignore
-  if (!apiKey && typeof window !== 'undefined' && window.aistudio) {
-    // @ts-ignore
-    const hasKey = await window.aistudio.hasSelectedApiKey();
-    if (!hasKey) {
-      // @ts-ignore
-      await window.aistudio.openSelectKey();
-    }
-  }
-  
   return new GoogleGenAI({ apiKey: getSafeApiKey() });
 }
 
@@ -61,7 +44,7 @@ export async function getMentorAdvice(stage: string, currentData: any) {
   try {
     const ai = await createAIInstance();
     const response = await ai.models.generateContent({
-      model: 'gemini-pro', // השם היציב שפותר את שגיאת ה-404
+      model: 'gemini-1.0-pro', // השם המדויק שפותר את ה-404 בגרסה הזו
       contents: `שלב נוכחי: ${stage}. נתונים: ${JSON.stringify(currentData)}. תן ייעוץ קצר, דוגמה ותובנה.`,
       config: {
         systemInstruction: EXPERT_SYSTEM_INSTRUCTION,
@@ -81,7 +64,7 @@ export async function getMentorAdvice(stage: string, currentData: any) {
     });
     return JSON.parse(cleanJsonString(response.text));
   } catch (error: any) {
-    console.error("Advice Error Details:", error);
+    console.error("Advice Error:", error);
     return null;
   }
 }
@@ -90,7 +73,7 @@ export async function generateFunnelDraft(type: string, currentData: any) {
   try {
     const ai = await createAIInstance();
     const response = await ai.models.generateContent({
-      model: 'gemini-pro', // השם היציב שפותר את שגיאת ה-404
+      model: 'gemini-1.0-pro', // גם כאן
       contents: `ייצר 3 הצעות ל${type} עבור שפ"ח על בסיס: ${JSON.stringify(currentData)}`,
       config: {
         systemInstruction: EXPERT_SYSTEM_INSTRUCTION,
@@ -104,7 +87,7 @@ export async function generateFunnelDraft(type: string, currentData: any) {
     });
     return JSON.parse(cleanJsonString(response.text));
   } catch (error: any) {
-    console.error("Draft Error Details:", error);
+    console.error("Draft Error:", error);
     return { items: [] };
   }
 }
@@ -113,19 +96,16 @@ export async function integrateFullPlanWithAI(plan: WorkPlan): Promise<WorkPlan>
   try {
     const ai = await createAIInstance();
     const response = await ai.models.generateContent({
-      model: 'gemini-pro', // השם היציב שפותר את שגיאת ה-404
+      model: 'gemini-1.0-pro', // וגם כאן
       contents: `בצע שכתוב אסטרטגי מלא: ${JSON.stringify(plan)}`,
       config: {
         systemInstruction: EXPERT_SYSTEM_INSTRUCTION,
         responseMimeType: "application/json"
       }
     });
-
-    const text = response.text;
-    if (!text) throw new Error("Empty response");
-    return JSON.parse(cleanJsonString(text));
+    return JSON.parse(cleanJsonString(response.text));
   } catch (error: any) {
-    console.error("Integration Error Details:", error);
+    console.error("Integration Error:", error);
     throw error;
   }
 }
