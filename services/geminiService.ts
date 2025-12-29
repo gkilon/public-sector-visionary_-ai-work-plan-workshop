@@ -2,28 +2,67 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { WorkPlan } from "../types.ts";
 
-// פונקציית עזר לניקוי הטקסט מהמודל לפני פענוח JSON
 const cleanJsonString = (str: string) => {
-  return str.replace(/```json/g, '').replace(/```/g, '').trim();
+  if (!str) return "{}";
+  // הסרת תגיות Markdown של קוד JSON אם קיימות
+  let cleaned = str.replace(/```json/g, '').replace(/```/g, '').trim();
+  // חיפוש האובייקט הראשון והאחרון למקרה שיש טקסט מיותר מסביב
+  const startIdx = cleaned.indexOf('{');
+  const endIdx = cleaned.lastIndexOf('}');
+  const startArrIdx = cleaned.indexOf('[');
+  const endArrIdx = cleaned.lastIndexOf(']');
+
+  // אם זה אובייקט
+  if (startIdx !== -1 && endIdx !== -1 && (startArrIdx === -1 || startIdx < startArrIdx)) {
+    cleaned = cleaned.substring(startIdx, endIdx + 1);
+  } 
+  // אם זה מערך
+  else if (startArrIdx !== -1 && endArrIdx !== -1) {
+    cleaned = cleaned.substring(startArrIdx, endArrIdx + 1);
+  }
+  return cleaned;
 };
 
 const EXPERT_SYSTEM_INSTRUCTION = `
-אתה "אסטרטג-על" ויועץ בכיר למנהלי שירותים פסיכולוגיים ציבוריים.
-תפקידך לשדרג תוכניות עבודה גולמיות לתוצר ברמה של מנכ"ל.
-אתה מתמקד בשימוש נכון ב-SWOT, חזון ואילוצים כדי ליצור מטרות ויעדים קוהרנטיים.
-הפלט חייב להיות JSON סדור ומדויק בלבד.
-אל תוסיף הסברים, הקדמות או סיומות. רק את ה-JSON עצמו.
+אתה "אסטרטג-על" בכיר המתמחה בשירותים פסיכולוגיים ציבוריים (שפ"ח).
+תפקידך לסייע למנהלים לבנות תוכנית עבודה מקצועית, חדה ואסטרטגית.
+חשוב: גם אם המידע שסופק חלקי, השתמש בידע המקצועי הרחב שלך כדי להציע רעיונות רלוונטיים ומעוררי השראה.
+עליך להחזיר תמיד אך ורק JSON תקין ומדויק לפי הסכימה המבוקשת.
+בלי הקדמות, בלי סיומות, ובלי "אני לא יכול". אם חסר מידע, תמציא דוגמאות גנריות מצוינות שמתאימות לשפ"ח.
 `;
 
+// פונקציה לבדיקת מפתח והתחברות
+async function getAIClient() {
+  // בדיקה אם קיים מפתח בסביבה
+  let apiKey = process.env.API_KEY;
+  
+  // אם אין מפתח, נסה לפתוח את הדיאלוג של AI Studio (רלוונטי לסביבות פרודקשן)
+  if (!apiKey && window.aistudio) {
+    const hasKey = await window.aistudio.hasSelectedApiKey();
+    if (!hasKey) {
+      await window.aistudio.openSelectKey();
+      // לאחר הפתיחה, המפתח אמור להיות מוזרק ל-process.env.API_KEY
+      apiKey = process.env.API_KEY;
+    }
+  }
+  
+  if (!apiKey) {
+    console.error("Missing API Key");
+    return null;
+  }
+  
+  return new GoogleGenAI({ apiKey });
+}
+
 export async function getMentorAdvice(stage: string, currentData: any) {
-  const apiKey = process.env.API_KEY;
-  if (!apiKey) return null;
-  const ai = new GoogleGenAI({ apiKey });
+  const ai = await getAIClient();
+  if (!ai) return null;
 
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: `שלב נוכחי: ${stage}. נתוני תוכנית: ${JSON.stringify(currentData)}. תן ייעוץ אסטרטגי קצר וממוקד.`,
+      contents: `שלב נוכחי בסדנה: ${stage}. נתוני תוכנית קיימים: ${JSON.stringify(currentData)}.
+      תן ייעוץ אסטרטגי קצר, דוגמה לניסוח מעולה ותובנה פילוסופית על ניהול בשלב זה.`,
       config: {
         systemInstruction: EXPERT_SYSTEM_INSTRUCTION,
         responseMimeType: "application/json",
@@ -40,20 +79,23 @@ export async function getMentorAdvice(stage: string, currentData: any) {
         }
       }
     });
-    return JSON.parse(cleanJsonString(response.text || "{}"));
+    const text = response.text || "{}";
+    return JSON.parse(cleanJsonString(text));
   } catch (error) {
     console.error("AI Advice Error:", error);
     return null;
   }
 }
 
-export async function generateFunnelDraft(stage: string, currentData: any) {
-  const apiKey = process.env.API_KEY;
-  if (!apiKey) return { items: [] };
-  const ai = new GoogleGenAI({ apiKey });
+export async function generateFunnelDraft(type: string, currentData: any) {
+  const ai = await getAIClient();
+  if (!ai) throw new Error("API_KEY_MISSING");
 
   try {
-    const prompt = `על סמך הנתונים: ${JSON.stringify(currentData)}, הצע 3 פריטים ל${stage} שמתאימים לשפ"ח (שירות פסיכולוגי חינוכי).`;
+    const prompt = `בהתבסס על הנתונים הבאים: ${JSON.stringify(currentData)},
+    ייצר 3 הצעות ל${type} (מטרות/יעדים/משימות) שמתאימות לשפ"ח מקצועי.
+    היה יצירתי והשתמש בשפה ניהולית גבוהה.`;
+
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: prompt,
@@ -67,20 +109,23 @@ export async function generateFunnelDraft(stage: string, currentData: any) {
         }
       }
     });
-    return JSON.parse(cleanJsonString(response.text || '{"items":[]}'));
+    const text = response.text || '{"items":[]}';
+    return JSON.parse(cleanJsonString(text));
   } catch (error) {
     console.error("AI Draft Error:", error);
-    return { items: [] };
+    throw error;
   }
 }
 
 export async function integrateFullPlanWithAI(plan: WorkPlan): Promise<WorkPlan> {
-  const apiKey = process.env.API_KEY;
-  if (!apiKey) return plan;
-  const ai = new GoogleGenAI({ apiKey });
+  const ai = await getAIClient();
+  if (!ai) throw new Error("API_KEY_MISSING");
 
   try {
-    const prompt = `בצע שכתוב אסטרטגי מלא לכל חלקי התוכנית: ${JSON.stringify(plan)}. הפוך אותה לחדה, מקצועית וקוהרנטית. וודא שהמשימות תומכות ביעדים והיעדים תומכים במטרות.`;
+    const prompt = `בצע שכתוב אסטרטגי מלא ואינטגרציה לכל חלקי התוכנית: ${JSON.stringify(plan)}.
+    הפוך את השפה למקצועית ביותר, וודא קוהרנטיות בין החזון, המטרות והמשימות.
+    הוסף תובנות AI (aiInsight) לכל יעד וחידודים (aiRefinement) לכל מטרה.`;
+
     const response = await ai.models.generateContent({
       model: 'gemini-3-pro-preview',
       contents: prompt,
@@ -126,10 +171,14 @@ export async function integrateFullPlanWithAI(plan: WorkPlan): Promise<WorkPlan>
       }
     });
 
-    const enhancedData = JSON.parse(cleanJsonString(response.text || "{}"));
-    return { ...plan, ...enhancedData };
-  } catch (error) {
+    const text = response.text;
+    if (!text) throw new Error("Empty response");
+    return JSON.parse(cleanJsonString(text));
+  } catch (error: any) {
     console.error("Integration Error:", error);
+    if (error.message?.includes("Requested entity was not found") && window.aistudio) {
+      await window.aistudio.openSelectKey();
+    }
     throw error;
   }
 }
