@@ -2,143 +2,128 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { WorkPlan } from "../types.ts";
 
-const getSafeApiKey = () => {
-  try {
-    return process.env.API_KEY || (window as any).process?.env?.API_KEY || "";
-  } catch {
-    return "";
-  }
-};
-
-const getAIInstance = () => {
-  const apiKey = getSafeApiKey();
-  if (!apiKey) {
-    console.warn("⚠️ Gemini API Key missing.");
-    return null;
-  }
-  return new GoogleGenAI({ apiKey });
-};
-
 const EXPERT_SYSTEM_INSTRUCTION = `
 אתה "אסטרטג-על" ויועץ בכיר למנהלי שירותים פסיכולוגיים ציבוריים.
 תפקידך לשדרג תוכניות עבודה גולמיות לתוצר ברמה של מנכ"ל.
-הפלט חייב להיות JSON סדור ומדויק.
+אתה מתמקד בשימוש נכון ב-SWOT, חזון ואילוצים כדי ליצור מטרות ויעדים קוהרנטיים.
+הפלט חייב להיות JSON סדור ומדויק בלבד.
 `;
 
-async function callWithRetry<T>(fn: () => Promise<T>, maxRetries = 2): Promise<T> {
-  let lastError: any;
-  for (let i = 0; i < maxRetries; i++) {
-    try {
-      return await fn();
-    } catch (error: any) {
-      lastError = error;
-      if (i < maxRetries - 1) await new Promise(r => setTimeout(r, 1000));
-    }
-  }
-  throw lastError;
-}
-
 export async function getMentorAdvice(stage: string, currentData: any) {
-  const ai = getAIInstance();
-  if (!ai) return { content: "שירות AI לא זמין", example: "", suggestions: [], philosophicalInsight: "נדרש מפתח API לפונקציונליות זו." };
+  const apiKey = process.env.API_KEY;
+  if (!apiKey) return null;
+  const ai = new GoogleGenAI({ apiKey });
 
-  return callWithRetry(async () => {
+  try {
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: `שלב: ${stage}. נתונים: ${JSON.stringify(currentData)}.`,
+      contents: `שלב נוכחי בסדנה: ${stage}. נתוני התוכנית עד כה: ${JSON.stringify(currentData)}. תן ייעוץ קצר וממוקד למנהל איך להמשיך מכאן.`,
       config: {
         systemInstruction: EXPERT_SYSTEM_INSTRUCTION,
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.OBJECT,
           properties: {
-            content: { type: Type.STRING },
-            example: { type: Type.STRING },
-            nextStepConnection: { type: Type.STRING },
-            suggestions: { type: Type.ARRAY, items: { type: Type.STRING } },
-            philosophicalInsight: { type: Type.STRING }
+            content: { type: Type.STRING, description: "הייעוץ העיקרי למנהל" },
+            example: { type: Type.STRING, description: "דוגמה לניסוח איכותי" },
+            nextStepConnection: { type: Type.STRING, description: "איך זה יתרום לשלב הבא" },
+            suggestions: { type: Type.ARRAY, items: { type: Type.STRING }, description: "3 הצעות קצרות" },
+            philosophicalInsight: { type: Type.STRING, description: "תובנה עמוקה על מנהיגות" }
           },
           required: ["content", "example", "nextStepConnection", "suggestions", "philosophicalInsight"]
         }
       }
     });
     return JSON.parse(response.text || "{}");
-  });
+  } catch (error) {
+    console.error("AI Advice Error:", error);
+    return null;
+  }
 }
 
 export async function generateFunnelDraft(stage: string, currentData: any) {
-  const ai = getAIInstance();
-  if (!ai) return { items: ["(מפתח API חסר)"] };
+  const apiKey = process.env.API_KEY;
+  if (!apiKey) return { items: [] };
+  const ai = new GoogleGenAI({ apiKey });
 
-  const prompt = `בהתבסס על SWOT: ${JSON.stringify(currentData.swot)}, תן 3 הצעות ל${stage}.`;
-  
-  const response = await ai.models.generateContent({
-    model: 'gemini-3-flash-preview',
-    contents: prompt,
-    config: {
-      systemInstruction: EXPERT_SYSTEM_INSTRUCTION,
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.OBJECT,
-        properties: { items: { type: Type.ARRAY, items: { type: Type.STRING } } },
-        required: ["items"]
+  try {
+    const prompt = `בהתבסס על ניתוח ה-SWOT והחזון: ${JSON.stringify(currentData)}, ייצר 3 הצעות ל${stage} שיהיו מקצועיות, חדות ורלוונטיות לשירות פסיכולוגי ציבורי.`;
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: prompt,
+      config: {
+        systemInstruction: EXPERT_SYSTEM_INSTRUCTION,
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: { items: { type: Type.ARRAY, items: { type: Type.STRING } } },
+          required: ["items"]
+        }
       }
-    }
-  });
-  return JSON.parse(response.text || '{"items":[]}');
+    });
+    return JSON.parse(response.text || '{"items":[]}');
+  } catch (error) {
+    console.error("AI Draft Error:", error);
+    return { items: [] };
+  }
 }
 
 export async function integrateFullPlanWithAI(plan: WorkPlan): Promise<WorkPlan> {
-  const ai = getAIInstance();
-  if (!ai) return plan;
+  const apiKey = process.env.API_KEY;
+  if (!apiKey) return plan;
+  const ai = new GoogleGenAI({ apiKey });
 
-  const prompt = `בצע שכתוב ואינטגרציה מלאה לתוכנית: ${JSON.stringify(plan)}.`;
-
-  const response = await ai.models.generateContent({
-    model: 'gemini-3-flash-preview',
-    contents: prompt,
-    config: {
-      systemInstruction: EXPERT_SYSTEM_INSTRUCTION,
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.OBJECT,
-        properties: {
-          objectives: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.OBJECT,
-              properties: { id: { type: Type.STRING }, title: { type: Type.STRING }, aiRefinement: { type: Type.STRING } },
-              required: ["id", "title", "aiRefinement"]
-            }
-          },
-          goals: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.OBJECT,
-              properties: {
-                id: { type: Type.STRING },
-                parentObjectiveId: { type: Type.STRING },
-                title: { type: Type.STRING },
-                aiInsight: { type: Type.STRING },
-                tasks: {
-                  type: Type.ARRAY,
-                  items: {
-                    type: Type.OBJECT,
-                    properties: { id: { type: Type.STRING }, description: { type: Type.STRING }, owner: { type: Type.STRING }, deadline: { type: Type.STRING }, isAiSuggested: { type: Type.BOOLEAN } },
-                    required: ["id", "description", "owner", "deadline", "isAiSuggested"]
+  try {
+    const prompt = `בצע שכתוב אסטרטגי ואינטגרציה מלאה לכל חלקי התוכנית: ${JSON.stringify(plan)}. הפוך אותה לחדה, מקצועית וקוהרנטית. שים לב במיוחד לחיבור בין ה-SWOT למטרות.`;
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-pro-preview',
+      contents: prompt,
+      config: {
+        systemInstruction: EXPERT_SYSTEM_INSTRUCTION,
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            objectives: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: { id: { type: Type.STRING }, title: { type: Type.STRING }, aiRefinement: { type: Type.STRING } },
+                required: ["id", "title", "aiRefinement"]
+              }
+            },
+            goals: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  id: { type: Type.STRING },
+                  parentObjectiveId: { type: Type.STRING },
+                  title: { type: Type.STRING },
+                  aiInsight: { type: Type.STRING },
+                  tasks: {
+                    type: Type.ARRAY,
+                    items: {
+                      type: Type.OBJECT,
+                      properties: { id: { type: Type.STRING }, description: { type: Type.STRING }, owner: { type: Type.STRING }, deadline: { type: Type.STRING }, isAiSuggested: { type: Type.BOOLEAN } },
+                      required: ["id", "description", "owner", "deadline", "isAiSuggested"]
+                    }
                   }
-                }
-              },
-              required: ["id", "parentObjectiveId", "title", "aiInsight", "tasks"]
-            }
+                },
+                required: ["id", "parentObjectiveId", "title", "aiInsight", "tasks"]
+              }
+            },
+            expertAnalysis: { type: Type.STRING }
           },
-          expertAnalysis: { type: Type.STRING }
-        },
-        required: ["objectives", "goals", "expertAnalysis"]
+          required: ["objectives", "goals", "expertAnalysis"]
+        }
       }
-    }
-  });
+    });
 
-  const enhancedData = JSON.parse(response.text || "{}");
-  return { ...plan, ...enhancedData };
+    const enhancedData = JSON.parse(response.text || "{}");
+    return { ...plan, ...enhancedData };
+  } catch (error) {
+    console.error("Integration Error:", error);
+    return plan;
+  }
 }
