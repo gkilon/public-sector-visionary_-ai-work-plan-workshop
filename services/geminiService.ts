@@ -1,7 +1,10 @@
-import { GoogleGenAI, Type } from "@google/genai";
 import { WorkPlan } from "../types.ts";
 
-const getSafeApiKey = (): string => {
+/**
+ * פונקציה בטוחה לשליפת המפתח.
+ * אם המערכת לא מוצאת את המפתח, היא תחזיר מחרוזת ריקה במקום להקריס את האתר.
+ */
+const getApiKey = (): string => {
   try {
     // @ts-ignore
     if (typeof import.meta !== 'undefined' && import.meta.env) {
@@ -9,26 +12,45 @@ const getSafeApiKey = (): string => {
       return import.meta.env.VITE_GEMINI_API_KEY || "";
     }
   } catch (e) {
-    console.warn("Env access failed");
+    console.warn("API Key environment not accessible yet");
   }
   return "";
 };
 
-const cleanJsonString = (str: string) => {
-  if (!str) return "{}";
-  let cleaned = str.replace(/```json/g, '').replace(/```/g, '').trim();
-  const startIdx = cleaned.indexOf('{');
-  const endIdx = cleaned.lastIndexOf('}');
-  const startArrIdx = cleaned.indexOf('[');
-  const endArrIdx = cleaned.lastIndexOf(']');
+const API_KEY = getApiKey();
 
-  if (startIdx !== -1 && endIdx !== -1 && (startArrIdx === -1 || startIdx < startArrIdx)) {
-    cleaned = cleaned.substring(startIdx, endIdx + 1);
-  } else if (startArrIdx !== -1 && endArrIdx !== -1) {
-    cleaned = cleaned.substring(startArrIdx, endArrIdx + 1);
+/**
+ * פונקציה לשליחת בקשה ישירה ל-API של גוגל באמצעות fetch.
+ * זו הדרך הכי אמינה לעקוף בעיות של ספריות ישנות בנטליפיי.
+ */
+async function callGeminiAPI(prompt: string, systemInstruction: string) {
+  if (!API_KEY) {
+    throw new Error("Missing API Key. Please check your Netlify settings.");
   }
-  return cleaned;
-};
+
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
+  
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      system_instruction: { parts: [{ text: systemInstruction }] },
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: { 
+        responseMimeType: "application/json",
+        temperature: 0.7
+      }
+    })
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.error?.message || 'API request failed');
+  }
+
+  const data = await response.json();
+  return data.candidates[0].content.parts[0].text;
+}
 
 const EXPERT_SYSTEM_INSTRUCTION = `
 אתה "אסטרטג-על" בכיר המתמחה בשירותים פסיכולוגיים ציבוריים (שפ"ח).
@@ -36,34 +58,12 @@ const EXPERT_SYSTEM_INSTRUCTION = `
 עליך להחזיר אך ורק JSON תקין.
 `;
 
-async function createAIInstance() {
-  return new GoogleGenAI({ apiKey: getSafeApiKey() });
-}
-
 export async function getMentorAdvice(stage: string, currentData: any) {
   try {
-    const ai = await createAIInstance();
-    const response = await ai.models.generateContent({
-      model: 'gemini-1.5-flash-latest', // השם המעודכן ביותר
-      contents: `שלב נוכחי: ${stage}. נתונים: ${JSON.stringify(currentData)}. תן ייעוץ קצר, דוגמה ותובנה.`,
-      config: {
-        systemInstruction: EXPERT_SYSTEM_INSTRUCTION,
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            content: { type: Type.STRING },
-            example: { type: Type.STRING },
-            nextStepConnection: { type: Type.STRING },
-            suggestions: { type: Type.ARRAY, items: { type: Type.STRING } },
-            philosophicalInsight: { type: Type.STRING }
-          },
-          required: ["content", "example", "nextStepConnection", "suggestions", "philosophicalInsight"]
-        }
-      }
-    });
-    return JSON.parse(cleanJsonString(response.text));
-  } catch (error: any) {
+    const prompt = `שלב נוכחי: ${stage}. נתונים: ${JSON.stringify(currentData)}. תן ייעוץ קצר, דוגמה ותובנה.`;
+    const result = await callGeminiAPI(prompt, EXPERT_SYSTEM_INSTRUCTION);
+    return JSON.parse(result);
+  } catch (error) {
     console.error("Advice Error:", error);
     return null;
   }
@@ -71,22 +71,10 @@ export async function getMentorAdvice(stage: string, currentData: any) {
 
 export async function generateFunnelDraft(type: string, currentData: any) {
   try {
-    const ai = await createAIInstance();
-    const response = await ai.models.generateContent({
-      model: 'gemini-1.5-flash-latest', // גם כאן
-      contents: `ייצר 3 הצעות ל${type} עבור שפ"ח על בסיס: ${JSON.stringify(currentData)}`,
-      config: {
-        systemInstruction: EXPERT_SYSTEM_INSTRUCTION,
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: { items: { type: Type.ARRAY, items: { type: Type.STRING } } },
-          required: ["items"]
-        }
-      }
-    });
-    return JSON.parse(cleanJsonString(response.text));
-  } catch (error: any) {
+    const prompt = `ייצר 3 הצעות ל${type} עבור שפ"ח על בסיס: ${JSON.stringify(currentData)}`;
+    const result = await callGeminiAPI(prompt, EXPERT_SYSTEM_INSTRUCTION);
+    return JSON.parse(result);
+  } catch (error) {
     console.error("Draft Error:", error);
     return { items: [] };
   }
@@ -94,17 +82,10 @@ export async function generateFunnelDraft(type: string, currentData: any) {
 
 export async function integrateFullPlanWithAI(plan: WorkPlan): Promise<WorkPlan> {
   try {
-    const ai = await createAIInstance();
-    const response = await ai.models.generateContent({
-      model: 'gemini-1.5-flash-latest', // וגם כאן
-      contents: `בצע שכתוב אסטרטגי מלא: ${JSON.stringify(plan)}`,
-      config: {
-        systemInstruction: EXPERT_SYSTEM_INSTRUCTION,
-        responseMimeType: "application/json"
-      }
-    });
-    return JSON.parse(cleanJsonString(response.text));
-  } catch (error: any) {
+    const prompt = `בצע שכתוב אסטרטגי מלא לתוכנית: ${JSON.stringify(plan)}`;
+    const result = await callGeminiAPI(prompt, EXPERT_SYSTEM_INSTRUCTION);
+    return JSON.parse(result);
+  } catch (error) {
     console.error("Integration Error:", error);
     throw error;
   }
