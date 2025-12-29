@@ -2,8 +2,7 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { WorkPlan } from "../types.ts";
 
 /**
- * השינוי היחיד מהפרויקט השני: 
- * ב-Vite משתמשים ב-import.meta.env ובקידומת VITE_
+ * פונקציה לשליפת המפתח מנטליפיי/Vite
  */
 const getApiKey = () => {
   // @ts-ignore
@@ -16,51 +15,60 @@ const EXPERT_SYSTEM_INSTRUCTION = `
 עליך להחזיר אך ורק JSON תקין.
 `;
 
-// פונקציית עזר לניקוי הטקסט שחוזר מה-AI
-const cleanJson = (text: string) => text.replace(/```json/g, '').replace(/```/g, '').trim();
-
 export const getMentorAdvice = async (stage: string, currentData: any) => {
-  // יצירת מופע בדיוק כמו בקוד ששלחת
+  // אתחול ה-AI בדיוק כמו בפרויקט השני שלך
   const ai = new GoogleGenAI({ apiKey: getApiKey() });
   
-  const response = await ai.models.generateContent({
-    model: 'gemini-1.5-flash', // שימוש במודל יציב שתומך ב-v1beta של @google/genai
-    contents: `שלב נוכחי: ${stage}. נתונים: ${JSON.stringify(currentData)}. תן ייעוץ קצר, דוגמה ותובנה.`,
-    config: {
-      systemInstruction: EXPERT_SYSTEM_INSTRUCTION,
-      responseMimeType: "application/json"
-    }
-  });
-  
-  return JSON.parse(cleanJson(response.text || '{}'));
+  try {
+    const response = await ai.models.generateContent({
+      // כאן שמתי את השם שה-SDK הזה מחפש. 
+      // אם gemini-1.5-flash נותן 404, נסה להחליף ל 'gemini-pro'
+      model: 'gemini-1.5-flash', 
+      contents: `שלב נוכחי: ${stage}. נתונים: ${JSON.stringify(currentData)}. תן ייעוץ קצר.`,
+      config: {
+        systemInstruction: EXPERT_SYSTEM_INSTRUCTION,
+        responseMimeType: "application/json"
+      }
+    });
+    return JSON.parse(response.text || '{}');
+  } catch (e) {
+    console.error("Advice fetch failed:", e);
+    return { content: "שגיאה בחיבור ל-AI" };
+  }
 };
 
 export const generateFunnelDraft = async (type: string, currentData: any) => {
   const ai = new GoogleGenAI({ apiKey: getApiKey() });
-  
-  const response = await ai.models.generateContent({
-    model: 'gemini-1.5-flash',
-    contents: `ייצר 3 הצעות ל${type} עבור שפ"ח על בסיס: ${JSON.stringify(currentData)}`,
-    config: {
-      systemInstruction: EXPERT_SYSTEM_INSTRUCTION,
-      responseMimeType: "application/json"
-    }
-  });
-  
-  return JSON.parse(cleanJson(response.text || '{"items": []}'));
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-1.5-flash',
+      contents: `ייצר 3 הצעות ל${type} עבור שפ"ח: ${JSON.stringify(currentData)}`,
+      config: {
+        systemInstruction: EXPERT_SYSTEM_INSTRUCTION,
+        responseMimeType: "application/json"
+      }
+    });
+    return JSON.parse(response.text || '{"items": []}');
+  } catch (e) {
+    console.error("Drafting failed:", e);
+    return { items: [] };
+  }
 };
 
 export const integrateFullPlanWithAI = async (plan: WorkPlan): Promise<WorkPlan> => {
   const ai = new GoogleGenAI({ apiKey: getApiKey() });
-  
-  const response = await ai.models.generateContent({
-    model: 'gemini-1.5-flash',
-    contents: `בצע שכתוב אסטרטגי מלא לתוכנית: ${JSON.stringify(plan)}`,
-    config: {
-      systemInstruction: EXPERT_SYSTEM_INSTRUCTION,
-      responseMimeType: "application/json"
-    }
-  });
-
-  return JSON.parse(cleanJson(response.text || '{}'));
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-1.5-flash',
+      contents: `בצע שכתוב אסטרטגי מלא: ${JSON.stringify(plan)}`,
+      config: {
+        systemInstruction: EXPERT_SYSTEM_INSTRUCTION,
+        responseMimeType: "application/json"
+      }
+    });
+    return JSON.parse(response.text || '{}');
+  } catch (e) {
+    console.error("Integration failed:", e);
+    throw e;
+  }
 };
