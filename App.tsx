@@ -68,28 +68,11 @@ function App() {
 
   const updatePlan = (updates: Partial<WorkPlan>) => setPlan(prev => ({ ...prev, ...updates }));
 
-  const ensureApiKey = async () => {
-    if (!process.env.API_KEY && window.aistudio) {
-      const hasKey = await window.aistudio.hasSelectedApiKey();
-      if (!hasKey) {
-        await window.aistudio.openSelectKey();
-        return !!process.env.API_KEY;
-      }
-    }
-    return !!process.env.API_KEY;
-  };
-
   const handleAiDraft = async (funnelType: 'objectives' | 'goals' | 'tasks', parentId?: string) => {
     const loadingKey = parentId ? `${funnelType}-${parentId}` : funnelType;
     setIsAiDrafting(loadingKey);
     
     try {
-      const hasKey = await ensureApiKey();
-      if (!hasKey) {
-        alert("נדרש מפתח API כדי להשתמש ביכולות ה-AI. אנא לחץ על כפתור הגדרות מפתח.");
-        return;
-      }
-
       const draft = await generateFunnelDraft(funnelType, plan);
       if (draft?.items?.length) {
         if (funnelType === 'objectives') {
@@ -103,15 +86,17 @@ function App() {
           updatePlan({ goals: plan.goals.map(g => g.id === parentId ? { ...g, tasks: [...g.tasks, ...newTasks] } : g) });
         }
       } else {
-        alert("ה-AI החזיר תשובה ריקה. נסה שוב בעוד רגע.");
+        // אם ה-AI לא החזיר כלום, נסה לבדוק אם מפתח ה-API חסר
+        if (!process.env.API_KEY && window.aistudio) {
+           await window.aistudio.openSelectKey();
+           alert("אנא הגדר מפתח API כדי לאפשר את יכולות ה-AI.");
+        } else {
+           alert("ה-AI לא הצליח לגבש הצעה בשלב זה. נסה להוסיף עוד פרטים בתוכנית.");
+        }
       }
     } catch (e: any) { 
       console.error(e);
-      if (e.message === "API_KEY_MISSING") {
-        alert("מפתח ה-API חסר. אנא הגדר אותו בהגדרות המפתח.");
-      } else {
-        alert("שגיאה בתקשורת עם ה-AI. ייתכן שיש עומס על השרת.");
-      }
+      alert("שגיאה בחיבור לשרת ה-AI. וודא שמפתח ה-API תקין.");
     } finally { 
       setIsAiDrafting(null); 
     }
@@ -121,11 +106,6 @@ function App() {
     if (isIntegrating) return;
     setIsIntegrating(true);
     try {
-      const hasKey = await ensureApiKey();
-      if (!hasKey) {
-        alert("נדרש מפתח API עבור אינטגרציה אסטרטגית.");
-        return;
-      }
       const enhanced = await integrateFullPlanWithAI(plan);
       if (enhanced) {
         setPlan(enhanced);
@@ -133,7 +113,7 @@ function App() {
       }
     } catch (e) {
       console.error(e);
-      alert("האינטגרציה נכשלה. וודא שהשתמשת במפתח API תקין (ייתכן שנדרש מפתח של פרויקט בתשלום למודל ה-Pro).");
+      alert("האינטגרציה נכשלה. וודא שמפתח ה-API מוגדר כראוי (ייתכן שנדרש מפתח של פרויקט בתשלום עבור מודל ה-Pro).");
     } finally { 
       setIsIntegrating(false); 
     }
@@ -193,7 +173,7 @@ function App() {
                   <div><label className={labelClasses}>חולשות ארגוניות (איפה חסר מענה?)</label><textarea className={inputClasses} value={plan.swot.weaknesses} onChange={e => updatePlan({ swot: { ...plan.swot, weaknesses: e.target.value } })} /></div>
                 </div>
                 <div className="space-y-6">
-                  <div><label className={labelClasses}>הזדמנויות (תקציבים, שותפים, טכנולוגיה)</label><textarea className={inputClasses} value={plan.swot.opportunities} onChange={e => updatePlan({ swot: { ...plan.swot, opportunities: e.target.value } })} /></div>
+                  <div><label className={labelClasses}>הזדנויות (תקציבים, שותפים, טכנולוגיה)</label><textarea className={inputClasses} value={plan.swot.opportunities} onChange={e => updatePlan({ swot: { ...plan.swot, opportunities: e.target.value } })} /></div>
                   <div><label className={labelClasses}>איומים (קיצוצים, עומס, שינויי מדיניות)</label><textarea className={inputClasses} value={plan.swot.threats} onChange={e => updatePlan({ swot: { ...plan.swot, threats: e.target.value } })} /></div>
                 </div>
               </div>
