@@ -10,8 +10,7 @@ if (!API_KEY) {
 
 const genAI = new GoogleGenerativeAI(API_KEY || "");
 // שימוש במודל flash שהוא מהיר ומתאים למשימות טקסט כאלו
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-
+const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
 /**
  * פונקציית עזר לניקוי תגובת ה-AI.
  * לעיתים ה-AI מחזיר קוד עטוף ב-Markdown (סימני ```json), הפונקציה הזו מנקה אותם.
