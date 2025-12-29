@@ -301,80 +301,81 @@ function App() {
                 <button 
                   onClick={runFullIntegration} 
                   disabled={isIntegrating}
-                  className="bg-emerald-600 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-emerald-500 shadow-lg transition-all disabled:opacity-50"
+                  className="bg-emerald-600 text-white px-8 py-4 rounded-2xl font-black flex items-center gap-3 hover:bg-emerald-500 shadow-[0_0_30px_rgba(16,185,129,0.4)] transition-all disabled:opacity-50"
                 >
-                  {isIntegrating ? <RefreshCw className="animate-spin" size={20} /> : <BrainCircuit size={20} />}
+                  {isIntegrating ? <RefreshCw className="animate-spin" size={24} /> : <BrainCircuit size={24} />}
                   אינטגרציה וחידוד אסטרטגי (Expert AI)
                 </button>
-                <button onClick={() => window.print()} className="bg-slate-800 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-slate-700">
+                <button onClick={() => window.print()} className="bg-slate-800 text-white px-6 py-4 rounded-2xl font-bold flex items-center gap-2 hover:bg-slate-700 transition-colors">
                   <Printer size={20} /> הדפסה ל-PDF
                 </button>
               </div>
             </div>
 
             {plan.expertAnalysis && (
-              <div className="bg-emerald-500/10 border border-emerald-500/30 p-6 rounded-3xl print:bg-white print:text-black print:border-slate-300">
-                <div className="flex items-center gap-3 text-emerald-400 font-black text-sm uppercase mb-3 print:text-black">
-                  <Sparkles size={16}/> ניתוח אסטרטג מומחה:
+              <div className="bg-emerald-500/10 border-2 border-emerald-500/30 p-8 rounded-[40px] shadow-2xl relative overflow-hidden print:bg-white print:border-black print:rounded-none">
+                <div className="absolute top-0 right-0 p-4 opacity-10"><Sparkles size={80} className="text-emerald-400" /></div>
+                <div className="flex items-center gap-3 text-emerald-400 font-black text-sm uppercase mb-4 print:text-black">
+                  <Sparkles size={20} className="animate-pulse" /> ניתוח מומחה אסטרטגי:
                 </div>
-                <p className="text-slate-100 text-lg leading-relaxed print:text-black font-medium italic">"{plan.expertAnalysis}"</p>
+                <p className="text-white text-2xl leading-relaxed font-bold italic print:text-black">"{plan.expertAnalysis}"</p>
               </div>
             )}
 
-            <div className="bg-white overflow-hidden rounded-3xl shadow-2xl border-4 border-slate-900">
+            <div className="bg-white overflow-hidden rounded-[30px] shadow-[0_35px_60px_-15px_rgba(0,0,0,0.3)] border-4 border-black print:border-2 print:shadow-none">
               <table className="w-full text-right border-collapse">
                 <thead>
-                  <tr className="bg-slate-900 border-b-4 border-black">
-                    <th className="p-5 border border-slate-700 text-sm font-black w-[20%] uppercase text-white">מטרה אסטרטגית</th>
-                    <th className="p-5 border border-slate-700 text-sm font-black w-[20%] uppercase text-white">יעד אופרטיבי</th>
-                    <th className="p-5 border border-slate-700 text-sm font-black w-[40%] uppercase text-white">משימות מפורטות</th>
-                    <th className="p-5 border border-slate-700 text-sm font-black w-[10%] text-center uppercase text-white">אחראי</th>
-                    <th className="p-5 border border-slate-700 text-sm font-black w-[10%] text-center uppercase text-white">לו"ז</th>
+                  <tr className="bg-slate-900 border-b-4 border-black print:bg-slate-200">
+                    <th className="p-6 border border-slate-700 text-xs font-black w-[18%] uppercase text-white tracking-widest print:text-black">מטרה אסטרטגית</th>
+                    <th className="p-6 border border-slate-700 text-xs font-black w-[20%] uppercase text-white tracking-widest print:text-black">יעד אופרטיבי</th>
+                    <th className="p-6 border border-slate-700 text-xs font-black w-[42%] uppercase text-white tracking-widest print:text-black">משימות מפורטות</th>
+                    <th className="p-6 border border-slate-700 text-xs font-black w-[10%] text-center uppercase text-white tracking-widest print:text-black">אחראי</th>
+                    <th className="p-6 border border-slate-700 text-xs font-black w-[10%] text-center uppercase text-white tracking-widest print:text-black">לו"ז</th>
                   </tr>
                 </thead>
                 <tbody className="text-black">
                   {plan.objectives.map(obj => {
                     const objGoals = plan.goals.filter(g => g.parentObjectiveId === obj.id);
                     if (objGoals.length === 0) return (
-                      <tr key={obj.id} className="border-b-2 border-slate-400">
-                        <td className="p-5 border border-slate-400 font-black bg-slate-100 text-black text-xl leading-tight">{obj.title}</td>
-                        <td colSpan={4} className="border border-slate-400 italic text-slate-600 p-5 font-bold">טרם הוגדרו יעדים</td>
+                      <tr key={obj.id} className="border-b-2 border-slate-300">
+                        <td className="p-6 border border-slate-300 font-black bg-slate-100 text-black text-2xl leading-tight">{obj.title}</td>
+                        <td colSpan={4} className="border border-slate-300 italic text-slate-500 p-6 font-bold text-center">טרם הוגדרו יעדים למטרה זו</td>
                       </tr>
                     );
                     
                     return objGoals.map((goal, gIdx) => (
                       <React.Fragment key={goal.id}>
                         {goal.tasks.length === 0 ? (
-                           <tr className="border-b-2 border-slate-400">
+                           <tr className="border-b-2 border-slate-300">
                             {gIdx === 0 && (
-                              <td rowSpan={objGoals.length} className="p-5 border border-slate-400 font-black align-top bg-slate-100 text-black text-xl leading-tight">
+                              <td rowSpan={objGoals.length} className="p-6 border border-slate-300 font-black align-top bg-slate-100 text-black text-2xl leading-tight">
                                 {obj.title}
-                                {obj.aiRefinement && <p className="text-xs text-emerald-700 mt-4 p-2 bg-emerald-50 rounded-lg border border-emerald-200 font-bold">שיפור AI: {obj.aiRefinement}</p>}
+                                {obj.aiRefinement && <div className="text-[11px] text-emerald-800 mt-4 p-3 bg-emerald-100 rounded-xl border-2 border-emerald-400 font-black shadow-inner print:hidden">💡 שדרוג AI: {obj.aiRefinement}</div>}
                               </td>
                             )}
-                            <td className="p-5 border border-slate-400 font-black bg-white text-black text-lg">{goal.title}</td>
-                            <td colSpan={3} className="p-5 border border-slate-400 italic text-slate-500 text-center font-bold">אין משימות ביצוע</td>
+                            <td className="p-6 border border-slate-300 font-black bg-white text-black text-xl leading-snug">{goal.title}</td>
+                            <td colSpan={3} className="p-6 border border-slate-300 italic text-slate-400 text-center font-black">אין משימות מוגדרות</td>
                           </tr>
                         ) : goal.tasks.map((task, tIdx) => (
-                          <tr key={task.id} className={`border-b-2 border-slate-400 hover:bg-slate-50 ${task.isAiSuggested ? 'bg-emerald-50/50' : 'bg-white'}`}>
+                          <tr key={task.id} className={`border-b-2 border-slate-300 hover:bg-slate-50 transition-colors ${task.isAiSuggested ? 'bg-emerald-50/70' : 'bg-white'}`}>
                             {gIdx === 0 && tIdx === 0 && (
-                              <td rowSpan={objGoals.reduce((sum, g) => sum + Math.max(1, g.tasks.length), 0)} className="p-5 border border-slate-400 font-black align-top bg-slate-100 text-black text-xl leading-tight">
+                              <td rowSpan={objGoals.reduce((sum, g) => sum + Math.max(1, g.tasks.length), 0)} className="p-6 border border-slate-300 font-black align-top bg-slate-100 text-black text-2xl leading-tight border-l-4 border-l-slate-900">
                                 {obj.title}
-                                {obj.aiRefinement && <div className="text-xs text-emerald-800 mt-4 p-3 bg-emerald-100/50 rounded-xl border-2 border-emerald-300 font-bold shadow-sm">💡 שדרוג אסטרטגי: {obj.aiRefinement}</div>}
+                                {obj.aiRefinement && <div className="text-[11px] text-emerald-900 mt-4 p-4 bg-emerald-200 rounded-2xl border-2 border-emerald-500 font-black shadow-sm print:hidden">💡 אסטרטגיית מומחה: {obj.aiRefinement}</div>}
                               </td>
                             )}
                             {tIdx === 0 && (
-                              <td rowSpan={goal.tasks.length} className="p-5 border border-slate-400 font-black align-top bg-white text-black text-lg leading-snug">
+                              <td rowSpan={goal.tasks.length} className="p-6 border border-slate-300 font-black align-top bg-white text-black text-xl leading-snug">
                                 {goal.title}
-                                {goal.aiInsight && <div className="mt-3 p-3 bg-blue-50 rounded-xl border border-blue-200 text-[11px] text-blue-900 font-black leading-tight">AI INSIGHT: {goal.aiInsight}</div>}
+                                {goal.aiInsight && <div className="mt-4 p-4 bg-blue-100 rounded-2xl border-2 border-blue-400 text-[10px] text-blue-950 font-black leading-tight shadow-sm print:hidden">🔍 הקשר אסטרטגי: {goal.aiInsight}</div>}
                               </td>
                             )}
-                            <td className={`p-5 border border-slate-400 text-md font-bold text-black leading-relaxed ${task.isAiSuggested ? 'border-r-8 border-r-emerald-600' : ''}`}>
+                            <td className={`p-6 border border-slate-300 text-lg font-bold text-black leading-relaxed ${task.isAiSuggested ? 'border-r-8 border-r-emerald-600' : ''}`}>
                               {task.description}
-                              {task.isAiSuggested && <span className="block mt-2 text-[10px] bg-emerald-600 text-white px-2 py-0.5 rounded-full w-fit font-black uppercase tracking-tighter shadow-sm">משימת מומחה AI</span>}
+                              {task.isAiSuggested && <span className="block mt-2 text-[10px] bg-emerald-700 text-white px-3 py-1 rounded-full w-fit font-black uppercase tracking-widest shadow-lg print:hidden">הצעת מומחה AI</span>}
                             </td>
-                            <td className="p-5 border border-slate-400 text-sm text-center font-black text-slate-900 bg-slate-50/50">{task.owner}</td>
-                            <td className="p-5 border border-slate-400 text-sm text-center font-black text-slate-950 bg-slate-50/50">{task.deadline}</td>
+                            <td className="p-6 border border-slate-300 text-sm text-center font-black text-slate-900 bg-slate-50/30">{task.owner}</td>
+                            <td className="p-6 border border-slate-300 text-sm text-center font-black text-slate-950 bg-slate-50/30">{task.deadline}</td>
                           </tr>
                         ))}
                       </React.Fragment>
@@ -384,25 +385,25 @@ function App() {
               </table>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 print:mt-12">
-              <div className="bg-slate-900 p-8 rounded-3xl border-2 border-white/20 shadow-2xl print:bg-white print:text-black print:border-slate-800">
-                 <h4 className="text-sm font-black text-emerald-400 uppercase tracking-[0.2em] mb-6 border-b-2 border-white/10 pb-2 print:text-black print:border-black">ניתוח SWOT ומיקוד אסטרטגי</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-10 print:mt-12">
+              <div className="bg-slate-900 p-10 rounded-[40px] border-4 border-white/10 shadow-3xl print:bg-white print:text-black print:border-black print:rounded-none">
+                 <h4 className="text-sm font-black text-emerald-400 uppercase tracking-[0.3em] mb-8 border-b-2 border-white/10 pb-4 print:text-black print:border-black">ניתוח SWOT ומיקוד אסטרטגי</h4>
                  <div className="grid grid-cols-2 gap-6">
-                    <div className="bg-white/5 p-4 rounded-2xl print:bg-slate-50"><p className="text-xs text-slate-400 font-black uppercase mb-1">חוזקות יחידתיות:</p><p className="text-sm text-slate-100 font-bold print:text-black">{plan.swot.strengths || "לא צוין"}</p></div>
-                    <div className="bg-white/5 p-4 rounded-2xl print:bg-slate-50"><p className="text-xs text-slate-400 font-black uppercase mb-1">הזדמנויות:</p><p className="text-sm text-slate-100 font-bold print:text-black">{plan.swot.opportunities || "לא צוין"}</p></div>
-                    <div className="col-span-2 bg-emerald-500/10 p-5 rounded-2xl border border-emerald-500/30 print:bg-slate-100 print:border-black"><p className="text-xs text-emerald-400 font-black uppercase mb-1 print:text-black">מיקודי השפ"ח לשנה הקרובה:</p><p className="text-lg text-white font-black leading-tight print:text-black">{plan.swot.focalPoints || "לא צוין"}</p></div>
+                    <div className="bg-white/5 p-5 rounded-2xl print:bg-slate-50 print:border"><p className="text-[10px] text-slate-500 font-black uppercase mb-2">חוזקות ליבה:</p><p className="text-md text-slate-100 font-bold print:text-black">{plan.swot.strengths || "לא צוין"}</p></div>
+                    <div className="bg-white/5 p-5 rounded-2xl print:bg-slate-50 print:border"><p className="text-[10px] text-slate-500 font-black uppercase mb-2">הזדמנויות צמיחה:</p><p className="text-md text-slate-100 font-bold print:text-black">{plan.swot.opportunities || "לא צוין"}</p></div>
+                    <div className="col-span-2 bg-emerald-500/10 p-6 rounded-2xl border-2 border-emerald-500/30 print:bg-slate-100 print:border-black"><p className="text-[10px] text-emerald-400 font-black uppercase mb-2 print:text-black">מיקודי השפ"ח המרכזיים:</p><p className="text-2xl text-white font-black leading-tight print:text-black">{plan.swot.focalPoints || "לא צוין"}</p></div>
                  </div>
               </div>
-              <div className="bg-slate-900 p-8 rounded-3xl border-2 border-white/20 shadow-2xl print:bg-white print:text-black print:border-slate-800">
-                 <h4 className="text-sm font-black text-amber-400 uppercase tracking-[0.2em] mb-6 border-b-2 border-white/10 pb-2 print:text-black print:border-black">איומים, אילוצים ומענים</h4>
-                 <div className="space-y-4">
+              <div className="bg-slate-900 p-10 rounded-[40px] border-4 border-white/10 shadow-3xl print:bg-white print:text-black print:border-black print:rounded-none">
+                 <h4 className="text-sm font-black text-amber-400 uppercase tracking-[0.3em] mb-8 border-b-2 border-white/10 pb-4 print:text-black print:border-black">ניהול סיכונים ועוגני מציאות</h4>
+                 <div className="space-y-6">
                     {plan.realityConstraints.map(c => (
-                      <div key={c.id} className="bg-white/5 p-4 rounded-2xl border-r-4 border-amber-500 print:bg-slate-50 print:border-black">
-                        <p className="text-slate-100 font-black text-sm mb-1 print:text-black">{c.category}: {c.detail}</p>
-                        <p className="text-emerald-400 font-black italic text-xs">מענה מתוכנן: {c.resourceToLeverage}</p>
+                      <div key={c.id} className="bg-white/5 p-6 rounded-2xl border-r-8 border-amber-500 shadow-md print:bg-slate-50 print:border-2">
+                        <p className="text-slate-100 font-black text-md mb-2 print:text-black">{c.category}: {c.detail}</p>
+                        <p className="text-emerald-400 font-black italic text-sm">מענה מתוכנן: {c.resourceToLeverage}</p>
                       </div>
                     ))}
-                    {plan.realityConstraints.length === 0 && <p className="text-slate-500 italic">לא הוגדרו אילוצים במערכת.</p>}
+                    {plan.realityConstraints.length === 0 && <p className="text-slate-500 italic text-center py-10">לא הוגדרו אילוצים או סיכונים.</p>}
                  </div>
               </div>
             </div>
@@ -421,7 +422,7 @@ function App() {
       <header className="glass-panel py-4 px-8 sticky top-0 z-50 border-b border-white/10 print:hidden">
         <div className="max-w-7xl mx-auto flex justify-between items-center">
           <div className="flex items-center gap-4 cursor-pointer" onClick={() => setStage(WorkshopStage.INTRO)}>
-            <div className="w-10 h-10 bg-emerald-600 rounded-lg flex items-center justify-center text-white font-black shadow-lg">ש</div>
+            <div className="w-10 h-10 bg-emerald-600 rounded-xl flex items-center justify-center text-white font-black shadow-[0_0_20px_rgba(16,185,129,0.5)]">ש</div>
             <h1 className="text-lg font-black text-white italic tracking-tight">מצפן ניהול שפ"ח</h1>
           </div>
           <div className="flex gap-2">
