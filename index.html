@@ -9,7 +9,6 @@
     <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@200;400;600;700&family=Heebo:wght@300;500;800&display=swap" rel="stylesheet">
     
     <script>
-        // Global environment shim
         window.process = { env: { API_KEY: "" } };
     </script>
 
@@ -52,11 +51,19 @@
         }
         .animate-fadeIn { animation: fadeIn 0.5s ease-out forwards; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #050a18; }
+        ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #10b981; }
+
         @media print {
             .print\:hidden { display: none !important; }
             body { background: white !important; color: black !important; }
-            .bg-slate-900, .bg-[#050a18] { background: white !important; }
-            .text-white, .text-slate-200 { color: black !important; }
+            .bg-slate-900, .bg-[#050a18], .glass-panel { background: white !important; border: none !important; }
+            .text-white, .text-slate-200, .text-slate-400 { color: black !important; }
+            .border-white\/10 { border-color: #000 !important; }
         }
     </style>
 </head>
@@ -74,7 +81,7 @@
         } from 'lucide-react';
         import { GoogleGenAI, Type } from "@google/genai";
 
-        // --- Types ---
+        // --- Configuration & Types ---
         const WorkshopStage = {
           INTRO: 'INTRO',
           SWOT_ANALYSIS: 'SWOT_ANALYSIS',
@@ -86,9 +93,27 @@
           FINAL_DASHBOARD: 'FINAL_DASHBOARD'
         };
 
-        // --- Expert Data ---
+        const PROFESSIONAL_GUIDANCE = {
+          SWOT_ANALYSIS: {
+            insight: "ה-SWOT הוא בסיס הנתונים לכל התוכנית. אל תחששו להציף חולשות ארגוניות אמיתיות.",
+            example: "חוזקה: גמישות במעבר לחירום. חולשה: חוסר בתיעוד דיגיטלי סדור."
+          },
+          VISION_ETHOS: {
+            insight: "חזון הוא לא סיסמה, הוא המצפן שיעזור לכם להגיד 'לא' לדברים שלא מקדמים אתכם.",
+            example: "חזון: להיות הלב המקצועי המאחד של הקהילה למען חוסן הילד."
+          },
+          STRATEGIC_OBJECTIVES: {
+            insight: "מטרת על היא הכיוון הכללי. היא צריכה להיות מעוררת השראה ורחבה.",
+            example: "מטרה: העמקת המענה המקצועי בתחום הגיל הרך."
+          },
+          OPERATIONAL_GOALS: {
+            insight: "כאן אנחנו הופכים ליעדים מדידים (SMART). מה יחשב כהצלחה בסוף השנה?",
+            example: "יעד: הקמת 3 קבוצות הדרכה חדשות עד סוף דצמבר."
+          }
+        };
+
         const WORKSHOP_ACTIVITIES = {
-          [WorkshopStage.SWOT_ANALYSIS]: {
+          SWOT_ANALYSIS: {
             title: "התבוננות יחידתית (SWOT)",
             type: 'individual',
             instruction: "התבוננו בשפ״ח כיחידה ארגונית, לא כאנשים פרטיים.",
@@ -98,7 +123,7 @@
               "איזה איום חיצוני מחייב אותנו להיערך אחרת כבר עכשיו?"
             ]
           },
-          [WorkshopStage.VISION_ETHOS]: {
+          VISION_ETHOS: {
             title: "זיקוק המצפן: שיחה בזוגות",
             type: 'pairs',
             instruction: "דברו על ה'לב' המקצועי שנותן משמעות לעבודה שלכם.",
@@ -109,52 +134,60 @@
           }
         };
 
-        const PROFESSIONAL_GUIDANCE = {
-          [WorkshopStage.SWOT_ANALYSIS]: {
-            insight: "ה-SWOT הוא בסיס הנתונים לכל התוכנית. אל תחששו להציף חולשות ארגוניות.",
-            example: "חוזקה: גמישות במעבר לחירום. חולשה: חוסר בתיעוד דיגיטלי סדור."
-          },
-          [WorkshopStage.STRATEGIC_OBJECTIVES]: {
-            insight: "מטרת על היא הכיוון הכללי. היא לא צריכה להיות מדידה עדיין, אלא מעוררת השראה.",
-            example: "מטרה: העמקת המענה המקצועי בתחום הגיל הרך."
-          }
-        };
-
-        // --- AI Services ---
+        // --- AI Engine ---
         const getAI = () => {
           const key = window.process.env.API_KEY || "";
-          return key ? new GoogleGenAI({ apiKey: key }) : null;
+          if (!key) return null;
+          return new GoogleGenAI({ apiKey: key });
         };
 
-        const EXPERT_SYSTEM = "אתה אסטרטג בכיר לשירותים ציבוריים. הפק JSON בלבד.";
+        const SYSTEM_INSTRUCTION = `
+        אתה "אסטרטג-על" ויועץ בכיר למנהלי שירותים ציבוריים. 
+        תפקידך לסייע בבניית תוכנית עבודה. פלט ב-JSON בלבד.
+        `;
 
         // --- Components ---
         const AIMentor = ({ advice, loading }) => {
-          if (loading) return <div className="p-4 bg-slate-800 rounded-xl animate-pulse">טוען ייעוץ AI...</div>;
+          if (loading) return (
+            <div className="glass-panel p-6 rounded-2xl animate-pulse space-y-3">
+              <div className="flex items-center gap-2 text-emerald-500 font-bold text-xs uppercase"><RefreshCw className="animate-spin" size={14}/> מעבד נתונים...</div>
+              <div className="h-4 bg-slate-800 rounded w-full"></div>
+              <div className="h-4 bg-slate-800 rounded w-2/3"></div>
+            </div>
+          );
           if (!advice) return null;
           return (
-            <div className="glass-panel p-6 rounded-2xl border border-emerald-500/20 space-y-3">
-              <div className="flex items-center gap-2 text-emerald-400 font-bold text-xs uppercase"><Sparkles size={16}/> מצפן AI</div>
-              <p className="text-sm italic text-slate-200">"{advice.philosophicalInsight}"</p>
-              <div className="text-xs text-slate-400">{advice.content}</div>
+            <div className="glass-panel p-6 rounded-2xl border border-emerald-500/20 space-y-4 animate-fadeIn">
+              <div className="flex items-center gap-2 text-emerald-400 font-bold text-xs uppercase"><Sparkles size={16}/> תובנת מומחה AI</div>
+              <p className="text-sm italic text-slate-200 leading-relaxed font-medium">"{advice.philosophicalInsight}"</p>
+              <div className="p-3 bg-emerald-500/5 rounded-xl border border-emerald-500/10">
+                <p className="text-xs text-slate-300">{advice.content}</p>
+              </div>
+              {advice.example && (
+                <div className="text-[11px] text-emerald-400/70 italic border-t border-white/5 pt-3">
+                  <span className="font-bold">דוגמה לניסוח:</span> {advice.example}
+                </div>
+              )}
             </div>
           );
         };
 
         const StageWrapper = ({ title, subtitle, icon, children }) => (
           <div className="animate-fadeIn">
-            <div className="flex items-center gap-4 mb-8">
-              <div className="p-3 bg-emerald-500/20 text-emerald-400 rounded-xl">{icon}</div>
+            <div className="flex items-center gap-5 mb-10">
+              <div className="p-4 bg-emerald-600/20 text-emerald-400 rounded-2xl shadow-[0_0_20px_rgba(16,185,129,0.2)] border border-emerald-500/30">
+                {icon}
+              </div>
               <div>
-                <h2 className="text-3xl font-black text-white">{title}</h2>
-                <p className="text-emerald-400/70 text-sm italic">{subtitle}</p>
+                <h2 className="text-4xl font-black text-white tracking-tight">{title}</h2>
+                <p className="text-emerald-400/80 text-xl font-light italic">{subtitle}</p>
               </div>
             </div>
             {children}
           </div>
         );
 
-        // --- Main App ---
+        // --- Main App Implementation ---
         function App() {
           const [stage, setStage] = useState(WorkshopStage.INTRO);
           const [plan, setPlan] = useState({
@@ -162,124 +195,376 @@
             vision: '', ethos: '', realityConstraints: [], objectives: [], goals: []
           });
           const [loading, setLoading] = useState(false);
+          const [isDrafting, setIsDrafting] = useState(false);
           const [advice, setAdvice] = useState(null);
+          const [showActivity, setShowActivity] = useState(false);
 
           const stagesSequence = Object.values(WorkshopStage);
-
           const updatePlan = (u) => setPlan(p => ({ ...p, ...u }));
 
           const fetchAdvice = async () => {
             const ai = getAI();
-            if (!ai || stage === WorkshopStage.INTRO) return;
+            if (!ai || stage === WorkshopStage.INTRO || stage === WorkshopStage.FINAL_DASHBOARD) return;
             setLoading(true);
             try {
               const res = await ai.models.generateContent({
                 model: 'gemini-3-flash-preview',
-                contents: `שלב: ${stage}. נתונים: ${JSON.stringify(plan)}`,
-                config: { responseMimeType: "application/json", systemInstruction: EXPERT_SYSTEM }
+                contents: `שלב נוכחי: ${stage}. נתוני תוכנית: ${JSON.stringify(plan)}`,
+                config: {
+                  systemInstruction: SYSTEM_INSTRUCTION,
+                  responseMimeType: "application/json",
+                  responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                      content: { type: Type.STRING },
+                      example: { type: Type.STRING },
+                      philosophicalInsight: { type: Type.STRING },
+                      suggestions: { type: Type.ARRAY, items: { type: Type.STRING } }
+                    },
+                    required: ["content", "philosophicalInsight"]
+                  }
+                }
               });
               setAdvice(JSON.parse(res.text));
-            } catch (e) { console.error(e); }
+            } catch (e) { console.error("AI Error:", e); }
             finally { setLoading(false); }
           };
 
-          useEffect(() => { fetchAdvice(); }, [stage]);
+          useEffect(() => { 
+            fetchAdvice(); 
+            setShowActivity(!!WORKSHOP_ACTIVITIES[stage]);
+          }, [stage]);
+
+          const handleAiDraft = async (type, parentId = null) => {
+            const ai = getAI();
+            if (!ai) return alert("נדרש מפתח API לביצוע פעולה זו");
+            setIsDrafting(true);
+            try {
+              const res = await ai.models.generateContent({
+                model: 'gemini-3-flash-preview',
+                contents: `ייצר 3 הצעות ל${type} בהתבסס על: ${JSON.stringify(plan)}`,
+                config: {
+                  systemInstruction: SYSTEM_INSTRUCTION,
+                  responseMimeType: "application/json",
+                  responseSchema: {
+                    type: Type.OBJECT,
+                    properties: { items: { type: Type.ARRAY, items: { type: Type.STRING } } },
+                    required: ["items"]
+                  }
+                }
+              });
+              const { items } = JSON.parse(res.text);
+              if (type === 'objectives') {
+                updatePlan({ objectives: [...plan.objectives, ...items.map(t => ({ id: Math.random().toString(), title: t }))] });
+              } else if (type === 'goals') {
+                updatePlan({ goals: [...plan.goals, ...items.map(t => ({ id: Math.random().toString(), parentObjectiveId: parentId, title: t, tasks: [] }))] });
+              } else if (type === 'tasks') {
+                updatePlan({ goals: plan.goals.map(g => g.id === parentId ? { ...g, tasks: [...g.tasks, ...items.map(t => ({ id: Math.random().toString(), description: t, owner: 'אחראי', deadline: '2025' }))] } : g) });
+              }
+            } catch (e) { console.error(e); }
+            finally { setIsDrafting(false); }
+          };
 
           const renderStage = () => {
-            const inputClasses = "w-full bg-slate-900/50 p-4 rounded-xl border border-white/10 focus:border-emerald-500 outline-none transition-all text-white";
-            const labelClasses = "block text-[10px] font-bold text-slate-500 uppercase mb-2";
+            const inputClasses = "w-full bg-slate-900/50 p-4 rounded-xl border border-white/10 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-all text-white placeholder:text-slate-600";
+            const labelClasses = "block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2";
 
             switch (stage) {
               case WorkshopStage.INTRO:
                 return (
-                  <div className="text-center py-20 space-y-8">
-                    <div className="inline-block p-6 bg-emerald-500/10 rounded-full border border-emerald-500/20 shadow-2xl">
-                      <BrainCircuit size={80} className="text-emerald-500" />
+                  <div className="text-center py-20 space-y-10 animate-fadeIn">
+                    <div className="relative inline-block">
+                      <div className="absolute inset-0 bg-emerald-500/20 blur-3xl rounded-full"></div>
+                      <BrainCircuit size={100} className="text-emerald-500 relative z-10" />
                     </div>
-                    <h1 className="text-6xl font-black text-white tracking-tighter">מצפן ניהול שפ"ח</h1>
-                    <p className="text-xl text-slate-400 max-w-xl mx-auto italic font-light">פלטפורמה אסטרטגית לבניית תוכניות עבודה חכמות מבוססות AI.</p>
-                    <button onClick={() => setStage(WorkshopStage.SWOT_ANALYSIS)} className="bg-emerald-600 text-white px-12 py-5 rounded-2xl font-black text-xl hover:bg-emerald-500 shadow-xl transition-all active:scale-95">התחל עכשיו</button>
+                    <div className="space-y-4">
+                      <h1 className="text-7xl font-black text-white tracking-tighter">מצפן ניהול שפ"ח</h1>
+                      <p className="text-2xl text-slate-400 max-w-2xl mx-auto italic font-light leading-relaxed">הדור הבא של תכנון אסטרטגי: שילוב בין עומק מקצועי לבינה מלאכותית.</p>
+                    </div>
+                    <button onClick={() => setStage(WorkshopStage.SWOT_ANALYSIS)} className="bg-emerald-600 text-white px-16 py-6 rounded-2xl font-black text-2xl hover:bg-emerald-500 shadow-[0_0_40px_rgba(16,185,129,0.3)] transition-all active:scale-95 group">
+                      התחל את הסדנה <ChevronLeft className="inline group-hover:translate-x-[-5px] transition-transform" />
+                    </button>
                   </div>
                 );
+
               case WorkshopStage.SWOT_ANALYSIS:
                 return (
-                  <StageWrapper title="ניתוח SWOT ומיקודים" subtitle="הבנת הזירה הארגונית" icon={<Activity size={24}/>}>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <StageWrapper title="ניתוח SWOT ומיקודים" subtitle="הבנת הזירה והכוחות הפועלים" icon={<Activity size={28}/>}>
+                    <div className="space-y-8">
                       <div className="col-span-2">
-                        <label className={labelClasses}>מיקודי השפ״ח המרכזיים</label>
-                        <textarea className={inputClasses} value={plan.swot.focalPoints} onChange={e => updatePlan({swot: {...plan.swot, focalPoints: e.target.value}})} placeholder="מה עומד במרכז העשייה השנה?" />
+                        <label className={labelClasses}>מיקודי השפ״ח המרכזיים לשנה הקרובה</label>
+                        <textarea className={inputClasses + " min-h-[120px]"} value={plan.swot.focalPoints} onChange={e => updatePlan({swot: {...plan.swot, focalPoints: e.target.value}})} placeholder="מהם 2-3 הנושאים שיעמדו במרכז העשייה השנה?" />
                       </div>
-                      <div>
-                        <label className={labelClasses}>חוזקות (פנימי)</label>
-                        <textarea className={inputClasses} value={plan.swot.strengths} onChange={e => updatePlan({swot: {...plan.swot, strengths: e.target.value}})} />
-                      </div>
-                      <div>
-                        <label className={labelClasses}>הזדמנויות (חיצוני)</label>
-                        <textarea className={inputClasses} value={plan.swot.opportunities} onChange={e => updatePlan({swot: {...plan.swot, opportunities: e.target.value}})} />
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                          <label className={labelClasses}>חוזקות (פנימי)</label>
+                          <textarea className={inputClasses} value={plan.swot.strengths} onChange={e => updatePlan({swot: {...plan.swot, strengths: e.target.value}})} placeholder="במה אנחנו מצטיינים?" />
+                        </div>
+                        <div>
+                          <label className={labelClasses}>הזדמנויות (חיצוני)</label>
+                          <textarea className={inputClasses} value={plan.swot.opportunities} onChange={e => updatePlan({swot: {...plan.swot, opportunities: e.target.value}})} placeholder="אילו משאבים חיצוניים נפתחו?" />
+                        </div>
+                        <div>
+                          <label className={labelClasses}>חולשות (פנימי)</label>
+                          <textarea className={inputClasses} value={plan.swot.weaknesses} onChange={e => updatePlan({swot: {...plan.swot, weaknesses: e.target.value}})} placeholder="מה מעכב אותנו?" />
+                        </div>
+                        <div>
+                          <label className={labelClasses}>איומים (חיצוני)</label>
+                          <textarea className={inputClasses} value={plan.swot.threats} onChange={e => updatePlan({swot: {...plan.swot, threats: e.target.value}})} placeholder="מה עלול לסכן את העבודה?" />
+                        </div>
                       </div>
                     </div>
                   </StageWrapper>
                 );
+
+              case WorkshopStage.VISION_ETHOS:
+                return (
+                  <StageWrapper title="חזון ואתוס" subtitle="זיקוק המצפן המקצועי" icon={<ShieldCheck size={28}/>}>
+                    <div className="space-y-8">
+                      <div>
+                        <label className={labelClasses}>חזון השפ״ח (משפט עוצמתי אחד)</label>
+                        <textarea className={inputClasses + " text-2xl font-bold text-emerald-400 min-h-[150px]"} value={plan.vision} onChange={e => updatePlan({vision: e.target.value})} placeholder="לאן אנחנו שואפים להגיע?" />
+                      </div>
+                      <div>
+                        <label className={labelClasses}>אתוס וערכי עבודה</label>
+                        <input className={inputClasses} value={plan.ethos} onChange={e => updatePlan({ethos: e.target.value})} placeholder="למשל: זמינות, מקצועיות ללא פשרות, גמישות..." />
+                      </div>
+                    </div>
+                  </StageWrapper>
+                );
+
+              case WorkshopStage.REALITY_CHECK:
+                return (
+                  <StageWrapper title="עוגני מציאות" subtitle="מיפוי אילוצים ומענים" icon={<Search size={28}/>}>
+                    <div className="space-y-6">
+                      <div className="overflow-x-auto rounded-2xl border border-white/10">
+                        <table className="w-full text-right bg-slate-900/30">
+                          <thead className="bg-slate-800/50">
+                            <tr>
+                              <th className="p-4 text-xs font-bold text-slate-400">אילוץ / קושי</th>
+                              <th className="p-4 text-xs font-bold text-slate-400">פירוט</th>
+                              <th className="p-4 text-xs font-bold text-slate-400">מענה אסטרטגי</th>
+                              <th className="p-4 w-10"></th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {plan.realityConstraints.map(c => (
+                              <tr key={c.id} className="border-t border-white/5">
+                                <td className="p-2"><input className="w-full bg-transparent border-none text-white focus:ring-0 text-sm font-bold" value={c.category} onChange={e => updatePlan({ realityConstraints: plan.realityConstraints.map(rc => rc.id === c.id ? {...rc, category: e.target.value} : rc) })} /></td>
+                                <td className="p-2"><input className="w-full bg-transparent border-none text-slate-400 focus:ring-0 text-sm" value={c.detail} onChange={e => updatePlan({ realityConstraints: plan.realityConstraints.map(rc => rc.id === c.id ? {...rc, detail: e.target.value} : rc) })} /></td>
+                                <td className="p-2"><input className="w-full bg-transparent border-none text-emerald-400 focus:ring-0 text-sm" value={c.resourceToLeverage} onChange={e => updatePlan({ realityConstraints: plan.realityConstraints.map(rc => rc.id === c.id ? {...rc, resourceToLeverage: e.target.value} : rc) })} /></td>
+                                <td className="p-2"><button onClick={() => updatePlan({ realityConstraints: plan.realityConstraints.filter(rc => rc.id !== c.id) })} className="text-red-400 hover:scale-110 transition-transform"><Trash2 size={16}/></button></td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                      <button onClick={() => updatePlan({ realityConstraints: [...plan.realityConstraints, { id: Date.now().toString(), category: '', detail: '', resourceToLeverage: '' }] })} className="w-full py-4 border-2 border-dashed border-white/10 rounded-2xl flex items-center justify-center gap-2 text-emerald-400 hover:bg-white/5 transition-all"><Plus size={20}/> הוספת אילוץ</button>
+                    </div>
+                  </StageWrapper>
+                );
+
+              case WorkshopStage.STRATEGIC_OBJECTIVES:
+                return (
+                  <StageWrapper title="מטרות על" subtitle="הגדרת הכיוונים האסטרטגיים" icon={<Target size={28}/>}>
+                    <div className="space-y-6">
+                      <div className="flex justify-end">
+                        <button onClick={() => handleAiDraft('objectives')} disabled={isDrafting} className="bg-emerald-600/20 text-emerald-400 px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 hover:bg-emerald-600/30">
+                          <Wand2 size={14}/> {isDrafting ? 'מייצר...' : 'הצעת AI למטרות'}
+                        </button>
+                      </div>
+                      <div className="space-y-4">
+                        {plan.objectives.map(obj => (
+                          <div key={obj.id} className="flex gap-4 items-center bg-slate-900 p-4 rounded-xl border border-white/10 group">
+                            <Target className="text-emerald-500" size={20} />
+                            <input className="w-full bg-transparent border-none text-white text-lg font-bold focus:ring-0" value={obj.title} onChange={e => updatePlan({ objectives: plan.objectives.map(o => o.id === obj.id ? { ...o, title: e.target.value } : o) })} placeholder="הכנס מטרת על..." />
+                            <button onClick={() => updatePlan({ objectives: plan.objectives.filter(o => o.id !== obj.id) })} className="text-slate-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={18} /></button>
+                          </div>
+                        ))}
+                        <button onClick={() => updatePlan({ objectives: [...plan.objectives, { id: Date.now().toString(), title: '' }] })} className="w-full py-4 border-2 border-dashed border-white/10 rounded-xl text-emerald-400 flex items-center justify-center gap-2 hover:bg-white/5 transition-all"><Plus size={20}/> הוספת מטרה</button>
+                      </div>
+                    </div>
+                  </StageWrapper>
+                );
+
+              case WorkshopStage.OPERATIONAL_GOALS:
+                return (
+                  <StageWrapper title="יעדים אופרטיביים" subtitle="גזירת יעדים מדידים מהמטרות" icon={<Layers size={28}/>}>
+                    <div className="space-y-10">
+                      {plan.objectives.map(obj => (
+                        <div key={obj.id} className="bg-slate-900/40 p-6 rounded-2xl border border-white/10 space-y-4">
+                          <div className="flex justify-between items-center border-b border-white/5 pb-2">
+                            <h3 className="text-emerald-400 font-black flex items-center gap-2"><Target size={16}/> {obj.title || "מטרה ללא כותרת"}</h3>
+                            <button onClick={() => handleAiDraft('goals', obj.id)} disabled={isDrafting} className="text-[10px] bg-emerald-500/10 text-emerald-400 px-3 py-1 rounded-full hover:bg-emerald-500/20">הצעת AI ליעדים</button>
+                          </div>
+                          <div className="space-y-3">
+                            {plan.goals.filter(g => g.parentObjectiveId === obj.id).map(goal => (
+                              <div key={goal.id} className="flex gap-4 items-center bg-black/20 p-3 rounded-lg border border-white/5 group">
+                                <input className="w-full bg-transparent border-none text-white font-medium focus:ring-0" value={goal.title} onChange={e => updatePlan({ goals: plan.goals.map(g => g.id === goal.id ? { ...g, title: e.target.value } : g) })} placeholder="הגדר יעד מדיד..." />
+                                <button onClick={() => updatePlan({ goals: plan.goals.filter(g => g.id !== goal.id) })} className="text-slate-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={16} /></button>
+                              </div>
+                            ))}
+                            <button onClick={() => updatePlan({ goals: [...plan.goals, { id: Math.random().toString(), parentObjectiveId: obj.id, title: '', tasks: [] }] })} className="text-emerald-400/60 text-xs font-bold flex items-center gap-1 hover:text-emerald-400"><Plus size={14}/> הוספת יעד</button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </StageWrapper>
+                );
+
+              case WorkshopStage.DETAILED_TASKS:
+                return (
+                  <StageWrapper title="משימות ולו״ז" subtitle="יורדים לרמת הביצוע ביומן" icon={<ClipboardList size={28}/>}>
+                    <div className="space-y-10">
+                      {plan.goals.map(goal => (
+                        <div key={goal.id} className="bg-slate-900 p-6 rounded-2xl border-r-4 border-emerald-500 space-y-4 shadow-xl">
+                          <div className="flex justify-between items-center">
+                            <h3 className="text-white font-bold">יעד: {goal.title || "יעד ללא כותרת"}</h3>
+                            <button onClick={() => handleAiDraft('tasks', goal.id)} disabled={isDrafting} className="text-[10px] bg-emerald-500/10 text-emerald-400 px-3 py-1 rounded-full hover:bg-emerald-500/20">הצעת AI למשימות</button>
+                          </div>
+                          <div className="space-y-2">
+                            {goal.tasks?.map(task => (
+                              <div key={task.id} className="grid grid-cols-1 md:grid-cols-12 gap-3 bg-black/30 p-3 rounded-xl border border-white/5">
+                                <div className="md:col-span-6"><input className="w-full bg-transparent border-none text-slate-100 text-sm focus:ring-0" value={task.description} onChange={e => updatePlan({ goals: plan.goals.map(g => g.id === goal.id ? { ...g, tasks: g.tasks.map(t => t.id === task.id ? { ...t, description: e.target.value } : t) } : g) })} /></div>
+                                <div className="md:col-span-3"><input className="w-full bg-slate-800/50 rounded p-2 text-xs text-white" value={task.owner} onChange={e => updatePlan({ goals: plan.goals.map(g => g.id === goal.id ? { ...g, tasks: g.tasks.map(t => t.id === task.id ? { ...t, owner: e.target.value } : t) } : g) })} /></div>
+                                <div className="md:col-span-2"><input className="w-full bg-slate-800/50 rounded p-2 text-xs text-emerald-400" value={task.deadline} onChange={e => updatePlan({ goals: plan.goals.map(g => g.id === goal.id ? { ...g, tasks: g.tasks.map(t => t.id === task.id ? { ...t, deadline: e.target.value } : t) } : g) })} /></div>
+                                <div className="md:col-span-1 flex justify-end"><button onClick={() => updatePlan({ goals: plan.goals.map(g => g.id === goal.id ? { ...g, tasks: g.tasks.filter(t => t.id !== task.id) } : g) })} className="text-slate-600 hover:text-red-400"><Trash2 size={14}/></button></div>
+                              </div>
+                            ))}
+                            <button onClick={() => updatePlan({ goals: plan.goals.map(g => g.id === goal.id ? { ...g, tasks: [...(g.tasks || []), { id: Math.random().toString(), description: '', owner: '', deadline: '' }] } : g) })} className="text-emerald-400 text-xs font-bold flex items-center gap-1 mt-2"><Plus size={16}/> הוספת משימה</button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </StageWrapper>
+                );
+
               case WorkshopStage.FINAL_DASHBOARD:
                 return (
-                  <div className="space-y-8">
-                    <div className="flex justify-between items-center">
-                      <h2 className="text-4xl font-black text-white">תוכנית עבודה משולבת</h2>
-                      <button onClick={() => window.print()} className="bg-slate-800 p-4 rounded-xl text-white flex gap-2"><Printer/> הדפסה</button>
+                  <div className="space-y-10 animate-fadeIn" dir="rtl">
+                    <div className="flex justify-between items-end pb-6 border-b border-white/10 print:hidden">
+                      <div>
+                        <h2 className="text-4xl font-black text-white mb-2 tracking-tight">תוצר סופי: תוכנית עבודה משולבת</h2>
+                        <p className="text-slate-400 italic">מצפן אסטרטגי לשפ"ח | {plan.vision || "לא הוגדר חזון"}</p>
+                      </div>
+                      <div className="flex gap-4">
+                        <button onClick={() => window.print()} className="bg-white text-black px-6 py-4 rounded-2xl font-black flex items-center gap-2 hover:bg-emerald-500 hover:text-white transition-all">
+                          <Printer size={20} /> הדפסה ל-PDF
+                        </button>
+                      </div>
                     </div>
-                    <div className="bg-white rounded-3xl p-1 overflow-hidden shadow-2xl border-4 border-black">
-                      <table className="w-full text-right">
+
+                    <div className="bg-white rounded-[30px] p-1 overflow-hidden shadow-2xl border-4 border-black print:border-2">
+                      <table className="w-full text-right border-collapse">
                         <thead className="bg-slate-900 text-white">
                           <tr>
-                            <th className="p-4 border border-slate-700">מטרה</th>
-                            <th className="p-4 border border-slate-700">משימות</th>
+                            <th className="p-6 border border-slate-700 text-xs font-black w-1/4">מטרה אסטרטגית</th>
+                            <th className="p-6 border border-slate-700 text-xs font-black w-1/4">יעד אופרטיבי</th>
+                            <th className="p-6 border border-slate-700 text-xs font-black w-1/2">משימות מפתח</th>
                           </tr>
                         </thead>
                         <tbody className="text-black">
-                          {plan.objectives.length > 0 ? plan.objectives.map(o => (
-                            <tr key={o.id}><td className="p-4 border font-bold">{o.title}</td><td className="p-4 border italic text-slate-400">יש להוסיף פירוט</td></tr>
-                          )) : <tr><td colSpan={2} className="p-10 text-center italic text-slate-400">טרם הוגדרו נתונים סופיים</td></tr>}
+                          {plan.objectives.map(obj => {
+                            const objGoals = plan.goals.filter(g => g.parentObjectiveId === obj.id);
+                            return (
+                              <tr key={obj.id} className="border-b-2 border-slate-300">
+                                <td className="p-6 border border-slate-300 font-black bg-slate-50 text-xl leading-tight align-top">{obj.title}</td>
+                                <td colSpan={2} className="p-0">
+                                  <table className="w-full h-full">
+                                    <tbody>
+                                      {objGoals.map(goal => (
+                                        <tr key={goal.id} className="border-b last:border-b-0">
+                                          <td className="p-4 border-l w-1/2 font-bold text-slate-800">{goal.title}</td>
+                                          <td className="p-4 w-1/2 italic text-slate-500 text-sm">
+                                            {goal.tasks?.map(t => t.description).join(', ') || 'אין משימות'}
+                                          </td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </td>
+                              </tr>
+                            );
+                          })}
                         </tbody>
                       </table>
                     </div>
                   </div>
                 );
               default:
-                return <div className="p-20 text-center text-slate-500 italic">השלב בפיתוח... אנא השתמש בכפתור "המשך"</div>;
+                return null;
             }
           };
 
           return (
-            <div className="min-h-screen flex flex-col">
-              <header className="glass-panel py-4 px-8 sticky top-0 z-50 flex justify-between items-center border-b border-white/5 print:hidden">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-emerald-600 rounded-lg flex items-center justify-center font-black">ש</div>
-                  <span className="font-bold text-white">מצפן שפ"ח</span>
+            <div className="min-h-screen flex flex-col bg-[#050a18] text-slate-200">
+              {/* Overlay Activity */}
+              {showActivity && WORKSHOP_ACTIVITIES[stage] && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn print:hidden">
+                  <div className="bg-[#0f172a] border border-emerald-500/30 rounded-3xl max-w-2xl w-full p-8 shadow-2xl space-y-6 text-right">
+                    <div className="flex justify-between items-center">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-emerald-500/20 rounded-lg text-emerald-400">
+                          {WORKSHOP_ACTIVITIES[stage].type === 'individual' ? <User size={20}/> : <Users size={20}/>}
+                        </div>
+                        <h3 className="text-2xl font-black text-white">{WORKSHOP_ACTIVITIES[stage].title}</h3>
+                      </div>
+                      <button onClick={() => setShowActivity(false)} className="text-slate-500 hover:text-white"><Plus size={24} className="rotate-45"/></button>
+                    </div>
+                    <div className="bg-emerald-500/10 p-4 rounded-2xl italic text-emerald-100">{WORKSHOP_ACTIVITIES[stage].instruction}</div>
+                    <div className="space-y-4">
+                      {WORKSHOP_ACTIVITIES[stage].questions.map((q, i) => (
+                        <div key={i} className="flex gap-4 items-start bg-slate-800/50 p-4 rounded-xl border border-white/5">
+                          <span className="bg-emerald-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 mt-1">{i+1}</span>
+                          <p className="text-slate-200">{q}</p>
+                        </div>
+                      ))}
+                    </div>
+                    <button onClick={() => setShowActivity(false)} className="w-full bg-emerald-600 text-white py-4 rounded-xl font-bold hover:bg-emerald-500 transition-all">הבנתי, בואו נתחיל</button>
+                  </div>
+                </div>
+              )}
+
+              <header className="glass-panel py-4 px-8 sticky top-0 z-50 flex justify-between items-center border-b border-white/10 print:hidden">
+                <div className="flex items-center gap-4 cursor-pointer" onClick={() => setStage(WorkshopStage.INTRO)}>
+                  <div className="w-10 h-10 bg-emerald-600 rounded-xl flex items-center justify-center text-white font-black shadow-[0_0_20px_rgba(16,185,129,0.5)]">ש</div>
+                  <h1 className="text-lg font-black text-white italic tracking-tight uppercase">מצפן שפ"ח</h1>
                 </div>
                 <div className="flex gap-2">
-                  {stagesSequence.map(s => <div key={s} className={`w-2 h-2 rounded-full ${stage === s ? 'bg-emerald-500 scale-125' : 'bg-slate-700'}`} />)}
+                  {stagesSequence.map(s => <div key={s} className={`w-3 h-3 rounded-full transition-all duration-300 ${stage === s ? 'bg-emerald-500 scale-150 shadow-[0_0_15px_rgba(16,185,129,0.7)]' : 'bg-slate-700'}`} />)}
                 </div>
               </header>
 
-              <main className="flex-1 max-w-6xl mx-auto w-full p-6 lg:p-12">
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
+              <main className="flex-1 max-w-7xl mx-auto w-full p-6 lg:p-12">
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
                   <div className={stage === WorkshopStage.INTRO || stage === WorkshopStage.FINAL_DASHBOARD ? "lg:col-span-12" : "lg:col-span-8"}>
                     {renderStage()}
-                    {stage !== WorkshopStage.INTRO && (
-                      <div className="mt-12 flex justify-between items-center print:hidden">
-                        <button onClick={() => setStage(stagesSequence[stagesSequence.indexOf(stage)-1])} className="text-slate-500 font-bold hover:text-white flex items-center gap-1"><ChevronRight/> חזרה</button>
-                        <button onClick={() => setStage(stagesSequence[stagesSequence.indexOf(stage)+1])} className="bg-white text-black px-10 py-3 rounded-xl font-black hover:bg-emerald-500 hover:text-white transition-all">המשך <ChevronLeft/></button>
+                    {stage !== WorkshopStage.INTRO && stage !== WorkshopStage.FINAL_DASHBOARD && (
+                      <div className="mt-12 flex justify-between items-center print:hidden border-t border-white/10 pt-6">
+                        <button onClick={() => setStage(stagesSequence[stagesSequence.indexOf(stage)-1])} className="text-slate-500 font-bold hover:text-white flex items-center gap-2"><ChevronRight/> חזרה</button>
+                        <button onClick={() => setStage(stagesSequence[stagesSequence.indexOf(stage)+1])} className="bg-white text-black px-12 py-4 rounded-2xl font-black hover:bg-emerald-500 hover:text-white transition-all shadow-xl">המשך <ChevronLeft/></button>
                       </div>
                     )}
                   </div>
+                  
                   {stage !== WorkshopStage.INTRO && stage !== WorkshopStage.FINAL_DASHBOARD && (
-                    <div className="lg:col-span-4 space-y-6 print:hidden">
+                    <div className="lg:col-span-4 space-y-6 print:hidden lg:sticky lg:top-28">
                       <AIMentor advice={advice} loading={loading} />
+                      {PROFESSIONAL_GUIDANCE[stage] && (
+                        <div className="glass-panel p-6 rounded-2xl space-y-3">
+                          <div className="flex items-center gap-2 text-emerald-400 font-black text-[10px] uppercase tracking-widest border-b border-white/5 pb-2"><Info size={14}/> טיפ מקצועי</div>
+                          <p className="text-white text-sm italic">"{PROFESSIONAL_GUIDANCE[stage].insight}"</p>
+                          <div className="bg-emerald-500/10 p-3 rounded-xl text-[11px] text-slate-300">
+                            <strong>דוגמה:</strong> {PROFESSIONAL_GUIDANCE[stage].example}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
               </main>
-              <footer className="py-6 text-center text-slate-800 text-[10px] uppercase tracking-widest border-t border-white/5 print:hidden">Strategy Compass 2025</footer>
+
+              <footer className="py-8 text-center text-slate-800 text-[10px] uppercase tracking-[0.5em] border-t border-white/5 print:hidden">Strategy Compass 2025 | AI Integration</footer>
             </div>
           );
         }
