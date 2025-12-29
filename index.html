@@ -9,12 +9,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@200;400;600;700&family=Heebo:wght@300;500;800&display=swap" rel="stylesheet">
     
     <script>
-        // מניעת קריסת דפדפן בגישה ל-process.env
-        window.process = { 
-            env: { 
-                API_KEY: "" // נטליפיי יזריק את זה במידה והוגדר Environment Variable
-            } 
-        };
+        // Global environment shim
+        window.process = { env: { API_KEY: "" } };
     </script>
 
     <script type="importmap">
@@ -31,7 +27,6 @@
 }
 </script>
 
-    <!-- Babel standalone: הכרחי להרצת TSX ישירות בנטליפיי ללא שלב Build מקדים -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script>
       Babel.registerPreset("tsx-env", {
@@ -43,9 +38,9 @@
     </script>
 
     <style>
-        body { font-family: 'Assistant', 'Heebo', sans-serif; background-color: #050a18; color: #e2e8f0; margin: 0; }
+        body { font-family: 'Assistant', 'Heebo', sans-serif; background-color: #050a18; color: #e2e8f0; margin: 0; overflow-x: hidden; }
         #root:empty::before {
-            content: 'טוען מערכת אסטרטגית...';
+            content: 'מכין סביבת עבודה אסטרטגית...';
             display: flex; align-items: center; justify-content: center; height: 100vh;
             font-size: 1.5rem; font-weight: 800; color: #10b981; background: #050a18;
             direction: rtl;
@@ -55,15 +50,242 @@
             backdrop-filter: blur(16px);
             border: 1px solid rgba(255, 255, 255, 0.1);
         }
+        .animate-fadeIn { animation: fadeIn 0.5s ease-out forwards; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         @media print {
             .print\:hidden { display: none !important; }
             body { background: white !important; color: black !important; }
+            .bg-slate-900, .bg-[#050a18] { background: white !important; }
+            .text-white, .text-slate-200 { color: black !important; }
         }
     </style>
 </head>
 <body class="bg-[#050a18] antialiased">
     <div id="root"></div>
-    <!-- טעינת הקוד הראשי דרך בבל כדי שירוץ בנטליפיי -->
-    <script type="text/babel" data-presets="tsx-env" data-type="module" src="./index.tsx"></script>
+
+    <script type="text/babel" data-presets="tsx-env" data-type="module">
+        import React, { useState, useEffect, useCallback, useRef } from 'react';
+        import { createRoot } from 'react-dom/client';
+        import { 
+          ChevronRight, ChevronLeft, ShieldCheck, Target, Zap, FileText,
+          Plus, Trash2, Play, Layers, Link as LinkIcon, Printer, Activity, 
+          Users, User, MessageCircle, Download, LayoutGrid, ArrowDownWideNarrow, Search,
+          Info, ClipboardList, Sparkles, Wand2, BrainCircuit, RefreshCw, AlertCircle, CheckCircle
+        } from 'lucide-react';
+        import { GoogleGenAI, Type } from "@google/genai";
+
+        // --- Types ---
+        const WorkshopStage = {
+          INTRO: 'INTRO',
+          SWOT_ANALYSIS: 'SWOT_ANALYSIS',
+          VISION_ETHOS: 'VISION_ETHOS',
+          REALITY_CHECK: 'REALITY_CHECK',
+          STRATEGIC_OBJECTIVES: 'STRATEGIC_OBJECTIVES',
+          OPERATIONAL_GOALS: 'OPERATIONAL_GOALS',
+          DETAILED_TASKS: 'DETAILED_TASKS',
+          FINAL_DASHBOARD: 'FINAL_DASHBOARD'
+        };
+
+        // --- Expert Data ---
+        const WORKSHOP_ACTIVITIES = {
+          [WorkshopStage.SWOT_ANALYSIS]: {
+            title: "התבוננות יחידתית (SWOT)",
+            type: 'individual',
+            instruction: "התבוננו בשפ״ח כיחידה ארגונית, לא כאנשים פרטיים.",
+            questions: [
+              "מהם המיקודים המרכזיים שאנחנו מתמודדים איתם בשנה הקרובה?",
+              "איזו חוזקה ארגונית שלנו היא 'נכס צאן ברזל' שלא נרצה לאבד?",
+              "איזה איום חיצוני מחייב אותנו להיערך אחרת כבר עכשיו?"
+            ]
+          },
+          [WorkshopStage.VISION_ETHOS]: {
+            title: "זיקוק המצפן: שיחה בזוגות",
+            type: 'pairs',
+            instruction: "דברו על ה'לב' המקצועי שנותן משמעות לעבודה שלכם.",
+            questions: [
+              "לו הייתם צריכים לכתוב את 'האני מאמין' שלנו על גלויה, מה היה כתוב בה?",
+              "איך החזון הזה פוגש את המיקודים שהגדרנו בשלב הקודם?"
+            ]
+          }
+        };
+
+        const PROFESSIONAL_GUIDANCE = {
+          [WorkshopStage.SWOT_ANALYSIS]: {
+            insight: "ה-SWOT הוא בסיס הנתונים לכל התוכנית. אל תחששו להציף חולשות ארגוניות.",
+            example: "חוזקה: גמישות במעבר לחירום. חולשה: חוסר בתיעוד דיגיטלי סדור."
+          },
+          [WorkshopStage.STRATEGIC_OBJECTIVES]: {
+            insight: "מטרת על היא הכיוון הכללי. היא לא צריכה להיות מדידה עדיין, אלא מעוררת השראה.",
+            example: "מטרה: העמקת המענה המקצועי בתחום הגיל הרך."
+          }
+        };
+
+        // --- AI Services ---
+        const getAI = () => {
+          const key = window.process.env.API_KEY || "";
+          return key ? new GoogleGenAI({ apiKey: key }) : null;
+        };
+
+        const EXPERT_SYSTEM = "אתה אסטרטג בכיר לשירותים ציבוריים. הפק JSON בלבד.";
+
+        // --- Components ---
+        const AIMentor = ({ advice, loading }) => {
+          if (loading) return <div className="p-4 bg-slate-800 rounded-xl animate-pulse">טוען ייעוץ AI...</div>;
+          if (!advice) return null;
+          return (
+            <div className="glass-panel p-6 rounded-2xl border border-emerald-500/20 space-y-3">
+              <div className="flex items-center gap-2 text-emerald-400 font-bold text-xs uppercase"><Sparkles size={16}/> מצפן AI</div>
+              <p className="text-sm italic text-slate-200">"{advice.philosophicalInsight}"</p>
+              <div className="text-xs text-slate-400">{advice.content}</div>
+            </div>
+          );
+        };
+
+        const StageWrapper = ({ title, subtitle, icon, children }) => (
+          <div className="animate-fadeIn">
+            <div className="flex items-center gap-4 mb-8">
+              <div className="p-3 bg-emerald-500/20 text-emerald-400 rounded-xl">{icon}</div>
+              <div>
+                <h2 className="text-3xl font-black text-white">{title}</h2>
+                <p className="text-emerald-400/70 text-sm italic">{subtitle}</p>
+              </div>
+            </div>
+            {children}
+          </div>
+        );
+
+        // --- Main App ---
+        function App() {
+          const [stage, setStage] = useState(WorkshopStage.INTRO);
+          const [plan, setPlan] = useState({
+            swot: { focalPoints: '', strengths: '', weaknesses: '', opportunities: '', threats: '' },
+            vision: '', ethos: '', realityConstraints: [], objectives: [], goals: []
+          });
+          const [loading, setLoading] = useState(false);
+          const [advice, setAdvice] = useState(null);
+
+          const stagesSequence = Object.values(WorkshopStage);
+
+          const updatePlan = (u) => setPlan(p => ({ ...p, ...u }));
+
+          const fetchAdvice = async () => {
+            const ai = getAI();
+            if (!ai || stage === WorkshopStage.INTRO) return;
+            setLoading(true);
+            try {
+              const res = await ai.models.generateContent({
+                model: 'gemini-3-flash-preview',
+                contents: `שלב: ${stage}. נתונים: ${JSON.stringify(plan)}`,
+                config: { responseMimeType: "application/json", systemInstruction: EXPERT_SYSTEM }
+              });
+              setAdvice(JSON.parse(res.text));
+            } catch (e) { console.error(e); }
+            finally { setLoading(false); }
+          };
+
+          useEffect(() => { fetchAdvice(); }, [stage]);
+
+          const renderStage = () => {
+            const inputClasses = "w-full bg-slate-900/50 p-4 rounded-xl border border-white/10 focus:border-emerald-500 outline-none transition-all text-white";
+            const labelClasses = "block text-[10px] font-bold text-slate-500 uppercase mb-2";
+
+            switch (stage) {
+              case WorkshopStage.INTRO:
+                return (
+                  <div className="text-center py-20 space-y-8">
+                    <div className="inline-block p-6 bg-emerald-500/10 rounded-full border border-emerald-500/20 shadow-2xl">
+                      <BrainCircuit size={80} className="text-emerald-500" />
+                    </div>
+                    <h1 className="text-6xl font-black text-white tracking-tighter">מצפן ניהול שפ"ח</h1>
+                    <p className="text-xl text-slate-400 max-w-xl mx-auto italic font-light">פלטפורמה אסטרטגית לבניית תוכניות עבודה חכמות מבוססות AI.</p>
+                    <button onClick={() => setStage(WorkshopStage.SWOT_ANALYSIS)} className="bg-emerald-600 text-white px-12 py-5 rounded-2xl font-black text-xl hover:bg-emerald-500 shadow-xl transition-all active:scale-95">התחל עכשיו</button>
+                  </div>
+                );
+              case WorkshopStage.SWOT_ANALYSIS:
+                return (
+                  <StageWrapper title="ניתוח SWOT ומיקודים" subtitle="הבנת הזירה הארגונית" icon={<Activity size={24}/>}>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="col-span-2">
+                        <label className={labelClasses}>מיקודי השפ״ח המרכזיים</label>
+                        <textarea className={inputClasses} value={plan.swot.focalPoints} onChange={e => updatePlan({swot: {...plan.swot, focalPoints: e.target.value}})} placeholder="מה עומד במרכז העשייה השנה?" />
+                      </div>
+                      <div>
+                        <label className={labelClasses}>חוזקות (פנימי)</label>
+                        <textarea className={inputClasses} value={plan.swot.strengths} onChange={e => updatePlan({swot: {...plan.swot, strengths: e.target.value}})} />
+                      </div>
+                      <div>
+                        <label className={labelClasses}>הזדמנויות (חיצוני)</label>
+                        <textarea className={inputClasses} value={plan.swot.opportunities} onChange={e => updatePlan({swot: {...plan.swot, opportunities: e.target.value}})} />
+                      </div>
+                    </div>
+                  </StageWrapper>
+                );
+              case WorkshopStage.FINAL_DASHBOARD:
+                return (
+                  <div className="space-y-8">
+                    <div className="flex justify-between items-center">
+                      <h2 className="text-4xl font-black text-white">תוכנית עבודה משולבת</h2>
+                      <button onClick={() => window.print()} className="bg-slate-800 p-4 rounded-xl text-white flex gap-2"><Printer/> הדפסה</button>
+                    </div>
+                    <div className="bg-white rounded-3xl p-1 overflow-hidden shadow-2xl border-4 border-black">
+                      <table className="w-full text-right">
+                        <thead className="bg-slate-900 text-white">
+                          <tr>
+                            <th className="p-4 border border-slate-700">מטרה</th>
+                            <th className="p-4 border border-slate-700">משימות</th>
+                          </tr>
+                        </thead>
+                        <tbody className="text-black">
+                          {plan.objectives.length > 0 ? plan.objectives.map(o => (
+                            <tr key={o.id}><td className="p-4 border font-bold">{o.title}</td><td className="p-4 border italic text-slate-400">יש להוסיף פירוט</td></tr>
+                          )) : <tr><td colSpan={2} className="p-10 text-center italic text-slate-400">טרם הוגדרו נתונים סופיים</td></tr>}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                );
+              default:
+                return <div className="p-20 text-center text-slate-500 italic">השלב בפיתוח... אנא השתמש בכפתור "המשך"</div>;
+            }
+          };
+
+          return (
+            <div className="min-h-screen flex flex-col">
+              <header className="glass-panel py-4 px-8 sticky top-0 z-50 flex justify-between items-center border-b border-white/5 print:hidden">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-emerald-600 rounded-lg flex items-center justify-center font-black">ש</div>
+                  <span className="font-bold text-white">מצפן שפ"ח</span>
+                </div>
+                <div className="flex gap-2">
+                  {stagesSequence.map(s => <div key={s} className={`w-2 h-2 rounded-full ${stage === s ? 'bg-emerald-500 scale-125' : 'bg-slate-700'}`} />)}
+                </div>
+              </header>
+
+              <main className="flex-1 max-w-6xl mx-auto w-full p-6 lg:p-12">
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
+                  <div className={stage === WorkshopStage.INTRO || stage === WorkshopStage.FINAL_DASHBOARD ? "lg:col-span-12" : "lg:col-span-8"}>
+                    {renderStage()}
+                    {stage !== WorkshopStage.INTRO && (
+                      <div className="mt-12 flex justify-between items-center print:hidden">
+                        <button onClick={() => setStage(stagesSequence[stagesSequence.indexOf(stage)-1])} className="text-slate-500 font-bold hover:text-white flex items-center gap-1"><ChevronRight/> חזרה</button>
+                        <button onClick={() => setStage(stagesSequence[stagesSequence.indexOf(stage)+1])} className="bg-white text-black px-10 py-3 rounded-xl font-black hover:bg-emerald-500 hover:text-white transition-all">המשך <ChevronLeft/></button>
+                      </div>
+                    )}
+                  </div>
+                  {stage !== WorkshopStage.INTRO && stage !== WorkshopStage.FINAL_DASHBOARD && (
+                    <div className="lg:col-span-4 space-y-6 print:hidden">
+                      <AIMentor advice={advice} loading={loading} />
+                    </div>
+                  )}
+                </div>
+              </main>
+              <footer className="py-6 text-center text-slate-800 text-[10px] uppercase tracking-widest border-t border-white/5 print:hidden">Strategy Compass 2025</footer>
+            </div>
+          );
+        }
+
+        const root = createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
 </body>
 </html>
