@@ -68,6 +68,19 @@ function App() {
 
   const updatePlan = (updates: Partial<WorkPlan>) => setPlan(prev => ({ ...prev, ...updates }));
 
+  const handleOpenApiKeySettings = async () => {
+    if (window.aistudio) {
+      try {
+        await window.aistudio.openSelectKey();
+      } catch (err) {
+        console.error("Failed to open key selector:", err);
+        alert("לא ניתן לפתוח את הגדרות המפתח בסביבה זו.");
+      }
+    } else {
+      alert("כלי ניהול המפתחות (AI Studio) אינו זמין בדפדפן זה.");
+    }
+  };
+
   const handleAiDraft = async (funnelType: 'objectives' | 'goals' | 'tasks', parentId?: string) => {
     const loadingKey = parentId ? `${funnelType}-${parentId}` : funnelType;
     setIsAiDrafting(loadingKey);
@@ -86,13 +99,12 @@ function App() {
           updatePlan({ goals: plan.goals.map(g => g.id === parentId ? { ...g, tasks: [...g.tasks, ...newTasks] } : g) });
         }
       } else {
-        // אם לא הוחזרו נתונים, ייתכן שנדרש מפתח
-        if (window.aistudio) {
-          await window.aistudio.openSelectKey();
-        }
+        // המנגנון בתוך geminiService כבר יפתח את הדיאלוג אם חסר מפתח
+        console.log("No items returned from AI draft.");
       }
     } catch (e: any) { 
-      console.error(e);
+      console.error("AI Draft Error:", e);
+      alert("הקריאה ל-AI נכשלה. אנא בדוק את הגדרות מפתח ה-API.");
     } finally { 
       setIsAiDrafting(null); 
     }
@@ -107,9 +119,9 @@ function App() {
         setPlan(enhanced);
         alert("התוכנית שודרגה בהצלחה!");
       }
-    } catch (e) {
-      console.error(e);
-      alert("הפעולה נכשלה. אנא וודא שהגדרת מפתח API תקין דרך כפתור ההגדרות.");
+    } catch (e: any) {
+      console.error("Full Integration Error:", e);
+      alert("האינטגרציה נכשלה. וודא שבחרת מפתח API תקין (ייתכן שנדרש חשבון בתשלום למודל ה-Pro).");
     } finally { 
       setIsIntegrating(false); 
     }
@@ -225,8 +237,8 @@ function App() {
             <div className="space-y-6 pb-40">
               <div className="flex justify-between items-center mb-8">
                 <p className="text-slate-400 text-lg italic font-light">המטרות שנגזרות מהחזון ומהמיקודים שהגדרתם.</p>
-                <button onClick={() => handleAiDraft('objectives')} disabled={isAiDrafting === 'objectives'} className="bg-emerald-600/30 text-emerald-300 px-8 py-4 rounded-2xl text-sm font-black flex items-center gap-3 hover:bg-emerald-600/50 shadow-lg border border-emerald-500/20 transition-all active:scale-95 disabled:opacity-50">
-                  {isAiDrafting === 'objectives' ? <RefreshCw className="animate-spin" size={20}/> : <Wand2 size={20} />} ייצר מטרות AI
+                <button onClick={() => handleAiDraft('objectives')} disabled={isAiDrafting !== null} className="bg-emerald-600/30 text-emerald-300 px-8 py-4 rounded-2xl text-sm font-black flex items-center gap-3 hover:bg-emerald-600/50 shadow-lg border border-emerald-500/20 transition-all active:scale-95 disabled:opacity-50">
+                  {isAiDrafting?.includes('objectives') ? <RefreshCw className="animate-spin" size={20}/> : <Wand2 size={20} />} ייצר מטרות AI
                 </button>
               </div>
               <div className="space-y-6">
@@ -251,7 +263,7 @@ function App() {
                 <div key={obj.id} className="bg-slate-900/60 p-10 rounded-[40px] border border-white/10 space-y-8 shadow-[0_30px_60px_-12px_rgba(0,0,0,0.5)] relative">
                   <div className="flex justify-between items-center border-b border-white/5 pb-6">
                     <h3 className="text-emerald-400 text-2xl font-black flex items-center gap-4"><Target size={32}/> {obj.title || "מטרה ללא כותרת"}</h3>
-                    <button onClick={() => handleAiDraft('goals', obj.id)} disabled={isAiDrafting === `goals-${obj.id}`} className="text-sm font-black bg-emerald-500/10 text-emerald-300 px-6 py-3 rounded-2xl hover:bg-emerald-500/20 border border-emerald-500/20 transition-all active:scale-95 disabled:opacity-50">
+                    <button onClick={() => handleAiDraft('goals', obj.id)} disabled={isAiDrafting !== null} className="text-sm font-black bg-emerald-500/10 text-emerald-300 px-6 py-3 rounded-2xl hover:bg-emerald-500/20 border border-emerald-500/20 transition-all active:scale-95 disabled:opacity-50">
                       {isAiDrafting === `goals-${obj.id}` ? <RefreshCw className="animate-spin" size={18}/> : <Sparkles size={18}/>} הצעת AI ליעדים
                     </button>
                   </div>
@@ -285,7 +297,7 @@ function App() {
                   <div key={goal.id} className="bg-slate-900/70 p-10 rounded-[44px] border-r-8 border-emerald-500 space-y-8 shadow-3xl border border-white/5">
                     <div className="flex justify-between items-center border-b border-white/5 pb-6">
                       <h3 className="text-white font-black text-3xl">יעד: {goal.title || "יעד ללא כותרת"}</h3>
-                      <button onClick={() => handleAiDraft('tasks', goal.id)} disabled={isAiDrafting === `tasks-${goal.id}`} className="text-sm font-black bg-emerald-500/10 text-emerald-300 px-8 py-4 rounded-2xl hover:bg-emerald-500/20 border border-emerald-500/20 transition-all active:scale-95">
+                      <button onClick={() => handleAiDraft('tasks', goal.id)} disabled={isAiDrafting !== null} className="text-sm font-black bg-emerald-500/10 text-emerald-300 px-8 py-4 rounded-2xl hover:bg-emerald-500/20 border border-emerald-500/20 transition-all active:scale-95">
                         {isAiDrafting === `tasks-${goal.id}` ? <RefreshCw className="animate-spin" size={20}/> : <Zap size={20}/>} משימות AI
                       </button>
                     </div>
@@ -389,7 +401,7 @@ function App() {
                     {isAiDrafting !== null ? <RefreshCw className="animate-spin" size={24}/> : <Sparkles size={24}/>} הצע רעיונות לשלב זה
                  </button>
                  <button 
-                  onClick={() => window.aistudio?.openSelectKey()}
+                  onClick={handleOpenApiKeySettings}
                   className="w-full bg-slate-800/50 hover:bg-slate-800 text-slate-400 py-4 rounded-2xl text-[11px] font-bold border border-white/5 flex items-center justify-center gap-3 transition-all mt-4"
                  >
                     <Key size={16}/> הגדרות מפתח API (נדרש ל-AI)

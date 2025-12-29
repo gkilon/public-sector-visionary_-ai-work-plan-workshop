@@ -21,23 +21,23 @@ const cleanJsonString = (str: string) => {
 const EXPERT_SYSTEM_INSTRUCTION = `
 אתה "אסטרטג-על" בכיר המתמחה בשירותים פסיכולוגיים ציבוריים (שפ"ח).
 תפקידך לסייע למנהלים לבנות תוכנית עבודה מקצועית, חדה ואסטרטגית.
-חשוב: גם אם המידע שסופק חלקי, השתמש בידע המקצועי הרחב שלך כדי להציע רעיונות רלוונטיים.
-עליך להחזיר תמיד אך ורק JSON תקין.
+עליך להחזיר אך ורק JSON תקין.
 `;
 
 /**
  * פונקציה ליצירת לקוח AI. 
- * אינה חוסמת אם המפתח חסר ב-process.env, אלא מאפשרת למערכת לנסות ולהשתמש במפתח המוזרק.
+ * אם אין מפתח ב-process.env, פותחת את הדיאלוג לבחירת מפתח.
  */
-async function createAIInstance(requirePro = false) {
-  if (requirePro && window.aistudio) {
+async function createAIInstance() {
+  // אם אין מפתח API מוזרק, ננסה לפתוח את הדיאלוג של המערכת
+  if (!process.env.API_KEY && window.aistudio) {
     const hasKey = await window.aistudio.hasSelectedApiKey();
     if (!hasKey) {
       await window.aistudio.openSelectKey();
-      // ממשיכים מיד לאחר פתיחת הדיאלוג לפי ההנחיות
     }
   }
-  // משתמשים במפתח שקיים ב-process.env.API_KEY (מוזרק אוטומטית ב-Preview או לאחר בחירה)
+  
+  // יצירת מופע חדש בכל פעם כדי להשתמש במפתח המעודכן ביותר
   return new GoogleGenAI({ apiKey: process.env.API_KEY || "" });
 }
 
@@ -64,8 +64,11 @@ export async function getMentorAdvice(stage: string, currentData: any) {
       }
     });
     return JSON.parse(cleanJsonString(response.text));
-  } catch (error) {
+  } catch (error: any) {
     console.error("Advice Error:", error);
+    if (error.message?.includes("Requested entity was not found") && window.aistudio) {
+      await window.aistudio.openSelectKey();
+    }
     return null;
   }
 }
@@ -87,16 +90,18 @@ export async function generateFunnelDraft(type: string, currentData: any) {
       }
     });
     return JSON.parse(cleanJsonString(response.text));
-  } catch (error) {
+  } catch (error: any) {
     console.error("Draft Error:", error);
+    if (error.message?.includes("Requested entity was not found") && window.aistudio) {
+      await window.aistudio.openSelectKey();
+    }
     return { items: [] };
   }
 }
 
 export async function integrateFullPlanWithAI(plan: WorkPlan): Promise<WorkPlan> {
   try {
-    // מודל Pro דורש בחירת מפתח מפורשת במידת הצורך
-    const ai = await createAIInstance(true);
+    const ai = await createAIInstance();
     const response = await ai.models.generateContent({
       model: 'gemini-3-pro-preview',
       contents: `בצע שכתוב אסטרטגי מלא: ${JSON.stringify(plan)}`,
@@ -147,7 +152,6 @@ export async function integrateFullPlanWithAI(plan: WorkPlan): Promise<WorkPlan>
     return JSON.parse(cleanJsonString(text));
   } catch (error: any) {
     console.error("Integration Error:", error);
-    // אם המפתח נדחה או חסר, פתח את הדיאלוג ונסה שוב
     if (error.message?.includes("Requested entity was not found") && window.aistudio) {
       await window.aistudio.openSelectKey();
     }
