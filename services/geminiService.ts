@@ -2,16 +2,27 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 
-// אתחול פשוט - המודל gemini-pro הוא "סוס עבודה" שלא עושה בעיות גרסאות
+if (!API_KEY) {
+  console.error("❌ API KEY IS MISSING!");
+}
+
 const genAI = new GoogleGenerativeAI(API_KEY || "");
-const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+
+/**
+ * פתרון ה-404 הסופי:
+ * אנחנו מעבירים את apiVersion כפרמטר שני לפונקציית ה-model.
+ * זה מכריח את ה-SDK להשתמש ב-v1 ולא ב-v1beta.
+ */
+const model = genAI.getGenerativeModel(
+  { model: "gemini-1.5-flash" },
+  { apiVersion: "v1" } 
+);
 
 const parseSafeJson = (text: string) => {
   try {
     const cleanText = text.replace(/```json/g, "").replace(/```/g, "").trim();
     return JSON.parse(cleanText);
   } catch (e) {
-    console.error("AI Response was not JSON:", text);
     return null;
   }
 };
@@ -19,7 +30,7 @@ const parseSafeJson = (text: string) => {
 export const getMentorAdvice = async (stage: any, plan: any) => {
   if (!API_KEY) return null;
   try {
-    const result = await model.generateContent(`מנטור לשפ"ח. שלב: ${stage}. תן עצה קצרה בעברית בפורמט JSON: {"content": "..."}`);
+    const result = await model.generateContent(`אתה מנטור לשפ"ח. שלב: ${stage}. תן עצה קצרה בעברית ב-JSON: {"content": "..."}`);
     const response = await result.response;
     return parseSafeJson(response.text());
   } catch (error: any) {
@@ -31,7 +42,7 @@ export const getMentorAdvice = async (stage: any, plan: any) => {
 export const generateFunnelDraft = async (type: string, plan: any) => {
   if (!API_KEY) return { items: [] };
   try {
-    const result = await model.generateContent(`הצע 3 ${type} לשפ"ח בעברית. החזר JSON: {"items": ["...", "...", "..."]}`);
+    const result = await model.generateContent(`הצע 3 ${type} לשפ"ח בעברית. JSON: {"items": []}`);
     const response = await result.response;
     return parseSafeJson(response.text());
   } catch (error: any) {
@@ -43,7 +54,7 @@ export const generateFunnelDraft = async (type: string, plan: any) => {
 export const integrateFullPlanWithAI = async (plan: any) => {
   if (!API_KEY) return plan;
   try {
-    const result = await model.generateContent(`שפר את תוכנית העבודה הזו של שפ"ח והחזר אותה כ-JSON מלא בעברית: ${JSON.stringify(plan)}`);
+    const result = await model.generateContent(`שפר את תוכנית העבודה הזו לשפ"ח והחזר JSON מלא: ${JSON.stringify(plan)}`);
     const response = await result.response;
     return parseSafeJson(response.text()) || plan;
   } catch (error: any) {
