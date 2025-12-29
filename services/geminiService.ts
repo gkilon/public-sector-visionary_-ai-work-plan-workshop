@@ -1,49 +1,49 @@
 import { WorkPlan } from "../types.ts";
 
+// שליפת המפתח מ-Vite/Netlify
 const getApiKey = (): string => {
   try {
     // @ts-ignore
-    if (typeof import.meta !== 'undefined' && import.meta.env) {
-      // @ts-ignore
-      return import.meta.env.VITE_GEMINI_API_KEY || "";
-    }
+    return import.meta.env?.VITE_GEMINI_API_KEY || "";
   } catch (e) {
-    console.warn("API Key environment not accessible yet");
+    return "";
   }
-  return "";
 };
 
 const API_KEY = getApiKey();
 
+/**
+ * פונקציה חסינה לשליחת בקשה ל-Gemini
+ */
 async function callGeminiAPI(prompt: string, systemInstruction: string) {
-  if (!API_KEY) {
-    throw new Error("Missing API Key.");
-  }
+  if (!API_KEY) throw new Error("Missing API Key");
 
-  // חזרנו ל-v1beta כי היא גמישה יותר עם פיצ'רים כמו JSON Mode
+  // שימוש ב-v1beta עם השם המלא של המודל
   const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
   
+  const payload = {
+    contents: [{ parts: [{ text: prompt }] }],
+    system_instruction: { parts: [{ text: systemInstruction }] },
+    generation_config: {
+      response_mime_type: "application/json",
+      temperature: 0.7
+    }
+  };
+
   const response = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      // שינוי קריטי: שמות השדות חייבים להיות עם קו תחתון (snake_case)
-      system_instruction: { parts: [{ text: systemInstruction }] },
-      contents: [{ parts: [{ text: prompt }] }],
-      generation_config: { 
-        response_mime_type: "application/json",
-        temperature: 0.7
-      }
-    })
+    body: JSON.stringify(payload)
   });
 
+  const responseData = await response.json();
+
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.error?.message || 'API request failed');
+    console.error("Gemini API Error details:", responseData);
+    throw new Error(responseData.error?.message || 'API request failed');
   }
 
-  const data = await response.json();
-  return data.candidates[0].content.parts[0].text;
+  return responseData.candidates[0].content.parts[0].text;
 }
 
 const EXPERT_SYSTEM_INSTRUCTION = `
