@@ -44,7 +44,7 @@ export async function getMentorAdvice(stage: string, currentData: any) {
   try {
     const ai = await createAIInstance();
     const response = await ai.models.generateContent({
-      model: 'gemini-1.0-pro', // השם המדויק שפותר את ה-404 בגרסה הזו
+      model: 'gemini-1.5-flash-latest', // השם המעודכן ביותר
       contents: `שלב נוכחי: ${stage}. נתונים: ${JSON.stringify(currentData)}. תן ייעוץ קצר, דוגמה ותובנה.`,
       config: {
         systemInstruction: EXPERT_SYSTEM_INSTRUCTION,
@@ -73,7 +73,7 @@ export async function generateFunnelDraft(type: string, currentData: any) {
   try {
     const ai = await createAIInstance();
     const response = await ai.models.generateContent({
-      model: 'gemini-1.0-pro', // גם כאן
+      model: 'gemini-1.5-flash-latest', // גם כאן
       contents: `ייצר 3 הצעות ל${type} עבור שפ"ח על בסיס: ${JSON.stringify(currentData)}`,
       config: {
         systemInstruction: EXPERT_SYSTEM_INSTRUCTION,
@@ -96,7 +96,7 @@ export async function integrateFullPlanWithAI(plan: WorkPlan): Promise<WorkPlan>
   try {
     const ai = await createAIInstance();
     const response = await ai.models.generateContent({
-      model: 'gemini-1.0-pro', // וגם כאן
+      model: 'gemini-1.5-flash-latest', // וגם כאן
       contents: `בצע שכתוב אסטרטגי מלא: ${JSON.stringify(plan)}`,
       config: {
         systemInstruction: EXPERT_SYSTEM_INSTRUCTION,
