@@ -7,43 +7,42 @@
     <title>מצפן למנהיגות ציבורית | סדנת תכניות עבודה</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@200;400;600;700&family=Heebo:wght@300;500;800&display=swap" rel="stylesheet">
+    <script>
+        // Shim for process.env to prevent ReferenceError in browser
+        window.process = {
+            env: {
+                API_KEY: "" // Netlify will inject this during build if using a bundler
+            }
+        };
+    </script>
     <style>
         body {
             font-family: 'Assistant', 'Heebo', sans-serif;
             background-color: #050a18;
             color: #e2e8f0;
+            margin: 0;
+        }
+        #root:empty::before {
+            content: 'טוען מערכת אסטרטגית...';
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: #10b981;
+            background: #050a18;
         }
         .glass-panel {
             background: rgba(30, 41, 59, 0.7);
             backdrop-filter: blur(16px);
             border: 1px solid rgba(255, 255, 255, 0.1);
         }
-        .luxury-gradient {
-            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-        }
-        .accent-text {
-            color: #fbbf24;
-        }
-        .no-scrollbar::-webkit-scrollbar {
-            display: none;
-        }
-        .animate-fadeIn {
-            animation: fadeIn 0.5s ease-out;
-        }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
         @media print {
             .print\:hidden { display: none !important; }
             body { background: white !important; color: black !important; }
-            .bg-[#050a18] { background: white !important; }
-            .bg-slate-900 { background: #f8fafc !important; }
-            .text-white { color: black !important; }
-            .text-slate-200 { color: black !important; }
             table { border: 2px solid black !important; }
-            th { background-color: #e2e8f0 !important; color: black !important; border: 1px solid black !important; }
-            td { border: 1px solid black !important; color: black !important; }
+            th, td { border: 1px solid black !important; color: black !important; }
         }
     </style>
 <script type="importmap">

@@ -6,11 +6,11 @@ import {
   Users, User, MessageCircle, Download, LayoutGrid, ArrowDownWideNarrow, Search,
   Info, ClipboardList, Sparkles, Wand2, BrainCircuit, RefreshCw
 } from 'lucide-react';
-import { WorkshopStage, WorkPlan, Objective, Goal, Task, AIAdvice, RealityConstraint } from './types';
-import { getMentorAdvice, generateFunnelDraft, integrateFullPlanWithAI } from './services/geminiService';
-import { PROFESSIONAL_GUIDANCE, WORKSHOP_ACTIVITIES } from './services/expertData';
-import StageWrapper from './components/StageWrapper';
-import AIMentor from './components/AIMentor';
+import { WorkshopStage, WorkPlan, Objective, Goal, Task, AIAdvice, RealityConstraint } from './types.ts';
+import { getMentorAdvice, generateFunnelDraft, integrateFullPlanWithAI } from './services/geminiService.ts';
+import { PROFESSIONAL_GUIDANCE, WORKSHOP_ACTIVITIES } from './services/expertData.ts';
+import StageWrapper from './components/StageWrapper.tsx';
+import AIMentor from './components/AIMentor.tsx';
 
 const INITIAL_PLAN: WorkPlan = {
   swot: { focalPoints: '', strengths: '', weaknesses: '', opportunities: '', threats: '' },
@@ -52,14 +52,16 @@ function App() {
         setAiAdvice(advice);
         adviceCache.current[stage] = advice;
       }
-    } catch (e) { console.error(e); } 
+    } catch (e) { 
+      console.error("AI Advice Error:", e);
+    } 
     finally { if (activeRequestRef.current === requestId) setIsAdviceLoading(false); }
   }, [stage, plan]);
 
   useEffect(() => {
     fetchAdvice();
     setShowActivity(!!WORKSHOP_ACTIVITIES[stage]);
-  }, [stage]);
+  }, [stage, fetchAdvice]);
 
   const updatePlan = (updates: Partial<WorkPlan>) => setPlan(prev => ({ ...prev, ...updates }));
 
@@ -410,10 +412,6 @@ function App() {
           </div>
         );
     }
-  };
-
-  const updateConstraint = (id: string, updates: Partial<RealityConstraint>) => {
-    updatePlan({ realityConstraints: plan.realityConstraints.map(c => c.id === id ? { ...c, ...updates } : c) });
   };
 
   return (
