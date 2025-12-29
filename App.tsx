@@ -51,7 +51,7 @@ function App() {
         adviceCache.current[targetStage] = advice;
       }
     } catch (e) { 
-      console.error("Failed to fetch advice:", e); 
+      console.error("Advice fetch failed:", e); 
     } finally { 
       setIsAdviceLoading(false); 
     }
@@ -68,27 +68,7 @@ function App() {
 
   const updatePlan = (updates: Partial<WorkPlan>) => setPlan(prev => ({ ...prev, ...updates }));
 
-  const handleOpenApiKeySettings = async (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    console.log("Key settings button clicked");
-    
-    // @ts-ignore
-    if (window.aistudio && typeof window.aistudio.openSelectKey === 'function') {
-      try {
-        // @ts-ignore
-        await window.aistudio.openSelectKey();
-      } catch (err) {
-        console.error("Selector fail:", err);
-        alert("שגיאה בפתיחת בורר המפתחות.");
-      }
-    } else {
-      alert("הגדרות המפתח זמינות רק בתוך סביבת העבודה של AI Studio. אם אתה ב-Netlify, וודא שהגדרת API_KEY ב-Environment Variables.");
-    }
-  };
-
   const handleAiDraft = async (funnelType: 'objectives' | 'goals' | 'tasks', parentId?: string) => {
-    console.log(`Starting AI Draft: ${funnelType}`);
     const loadingKey = parentId ? `${funnelType}-${parentId}` : funnelType;
     setIsAiDrafting(loadingKey);
     
@@ -102,15 +82,12 @@ function App() {
           const newGoals = draft.items.map((t: string) => ({ id: `goal-${Math.random().toString(36).substr(2, 9)}`, parentObjectiveId: parentId, title: t, tasks: [] }));
           updatePlan({ goals: [...plan.goals, ...newGoals] });
         } else if (funnelType === 'tasks' && parentId) {
-          const newTasks = draft.items.map((t: string) => ({ id: `task-${Math.random().toString(36).substr(2, 9)}`, description: t, owner: 'הצעה', deadline: '2025', priority: 'חשוב' }));
+          const newTasks = draft.items.map((t: string) => ({ id: `task-${Math.random().toString(36).substr(2, 9)}`, description: t, owner: 'הצעת AI', deadline: '2025', priority: 'חשוב' }));
           updatePlan({ goals: plan.goals.map(g => g.id === parentId ? { ...g, tasks: [...g.tasks, ...newTasks] } : g) });
         }
-      } else {
-        alert("ה-AI לא הצליח להחזיר הצעות. וודא שמפתח ה-API מוגדר כראוי ב-Netlify.");
       }
-    } catch (e: any) { 
-      console.error("AI Action Error:", e);
-      alert("שגיאה בחיבור ל-AI: " + (e.message || "Unknown error"));
+    } catch (e) { 
+      console.error("Drafting failed:", e);
     } finally { 
       setIsAiDrafting(null); 
     }
@@ -119,16 +96,14 @@ function App() {
   const runFullIntegration = async () => {
     if (isIntegrating) return;
     setIsIntegrating(true);
-    console.log("Running Full Integration...");
     try {
       const enhanced = await integrateFullPlanWithAI(plan);
       if (enhanced) {
         setPlan(enhanced);
-        alert("התוכנית שודרגה בהצלחה!");
       }
-    } catch (e: any) {
-      console.error("Integration Fail:", e);
-      alert("האינטגרציה נכשלה. וודא שבחרת מפתח API תקין ב-Netlify.");
+    } catch (e) {
+      console.error("Integration failed:", e);
+      alert("האינטגרציה נכשלה. וודא שקיים חיבור תקין לשרת ה-AI.");
     } finally { 
       setIsIntegrating(false); 
     }
@@ -418,12 +393,6 @@ function App() {
                   className="w-full bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-400 py-6 rounded-3xl text-sm font-black border border-emerald-500/20 flex items-center justify-center gap-4 transition-all active:scale-95 disabled:opacity-50"
                  >
                     {isAiDrafting !== null ? <RefreshCw className="animate-spin" size={24}/> : <Sparkles size={24}/>} הצע רעיונות לשלב זה
-                 </button>
-                 <button 
-                  onClick={handleOpenApiKeySettings}
-                  className="w-full bg-slate-800/50 hover:bg-slate-800 text-slate-400 py-4 rounded-2xl text-[11px] font-bold border border-white/5 flex items-center justify-center gap-3 transition-all mt-4"
-                 >
-                    <Key size={16}/> הגדרות מפתח API (נדרש ל-AI)
                  </button>
               </div>
               {PROFESSIONAL_GUIDANCE[stage] && (
