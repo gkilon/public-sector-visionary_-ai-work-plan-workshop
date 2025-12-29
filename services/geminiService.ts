@@ -2,22 +2,6 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { WorkPlan } from "../types.ts";
 
-/**
- * גישה בטוחה למפתח ה-API כדי למנוע ReferenceError בסביבות דפדפן רגילות.
- */
-const getSafeApiKey = (): string => {
-  try {
-    // @ts-ignore
-    if (typeof process !== 'undefined' && process.env && process.env.API_KEY) {
-      // @ts-ignore
-      return process.env.API_KEY;
-    }
-  } catch (e) {
-    console.warn("Process env is not accessible safely");
-  }
-  return "";
-};
-
 const cleanJsonString = (str: string) => {
   if (!str) return "{}";
   let cleaned = str.replace(/```json/g, '').replace(/```/g, '').trim();
@@ -37,32 +21,23 @@ const cleanJsonString = (str: string) => {
 const EXPERT_SYSTEM_INSTRUCTION = `
 אתה "אסטרטג-על" בכיר המתמחה בשירותים פסיכולוגיים ציבוריים (שפ"ח).
 תפקידך לסייע למנהלים לבנות תוכנית עבודה מקצועית, חדה ואסטרטגית.
-עליך להחזיר אך ורק JSON תקין.
+עליך להחזיר אך ורק JSON תקין ומדויק.
 `;
 
-async function createAIInstance() {
-  const apiKey = getSafeApiKey();
-  
-  // אם אין מפתח ב-process.env, ננסה לבדוק אם אנחנו בסביבת AI Studio שמאפשרת בחירה
-  // @ts-ignore
-  if (!apiKey && window.aistudio) {
-    // @ts-ignore
-    const hasKey = await window.aistudio.hasSelectedApiKey();
-    if (!hasKey) {
-      // @ts-ignore
-      await window.aistudio.openSelectKey();
-    }
-  }
-  
-  return new GoogleGenAI({ apiKey: getSafeApiKey() });
+/**
+ * פונקציית עזר ליצירת מופע AI.
+ * המפתח נלקח תמיד מ-process.env.API_KEY שמוזרק על ידי הסביבה.
+ */
+function getAI() {
+  return new GoogleGenAI({ apiKey: process.env.API_KEY || "" });
 }
 
 export async function getMentorAdvice(stage: string, currentData: any) {
   try {
-    const ai = await createAIInstance();
+    const ai = getAI();
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: `שלב נוכחי: ${stage}. נתונים: ${JSON.stringify(currentData)}. תן ייעוץ קצר, דוגמה ותובנה.`,
+      contents: `שלב נוכחי: ${stage}. נתונים: ${JSON.stringify(currentData)}. תן ייעוץ אסטרטגי קצר, דוגמה ותובנה פילוסופית.`,
       config: {
         systemInstruction: EXPERT_SYSTEM_INSTRUCTION,
         responseMimeType: "application/json",
@@ -79,52 +54,44 @@ export async function getMentorAdvice(stage: string, currentData: any) {
         }
       }
     });
-    return JSON.parse(cleanJsonString(response.text));
+    return JSON.parse(cleanJsonString(response.text || "{}"));
   } catch (error: any) {
-    console.error("Advice Error Details:", error);
-    // @ts-ignore
-    if (error.message?.includes("Requested entity was not found") && window.aistudio) {
-      // @ts-ignore
-      await window.aistudio.openSelectKey();
-    }
+    console.error("Advice Error:", error);
     return null;
   }
 }
 
 export async function generateFunnelDraft(type: string, currentData: any) {
   try {
-    const ai = await createAIInstance();
+    const ai = getAI();
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: `ייצר 3 הצעות ל${type} עבור שפ"ח על בסיס: ${JSON.stringify(currentData)}`,
+      contents: `ייצר 3 הצעות ל${type} עבור שפ"ח על בסיס הנתונים: ${JSON.stringify(currentData)}`,
       config: {
         systemInstruction: EXPERT_SYSTEM_INSTRUCTION,
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.OBJECT,
-          properties: { items: { type: Type.ARRAY, items: { type: Type.STRING } } },
+          properties: { 
+            items: { type: Type.ARRAY, items: { type: Type.STRING } } 
+          },
           required: ["items"]
         }
       }
     });
-    return JSON.parse(cleanJsonString(response.text));
+    return JSON.parse(cleanJsonString(response.text || '{"items":[]}'));
   } catch (error: any) {
-    console.error("Draft Error Details:", error);
-    // @ts-ignore
-    if (error.message?.includes("Requested entity was not found") && window.aistudio) {
-      // @ts-ignore
-      await window.aistudio.openSelectKey();
-    }
+    console.error("Draft Error:", error);
     return { items: [] };
   }
 }
 
 export async function integrateFullPlanWithAI(plan: WorkPlan): Promise<WorkPlan> {
   try {
-    const ai = await createAIInstance();
+    const ai = getAI();
     const response = await ai.models.generateContent({
       model: 'gemini-3-pro-preview',
-      contents: `בצע שכתוב אסטרטגי מלא: ${JSON.stringify(plan)}`,
+      contents: `בצע שכתוב אסטרטגי מלא לתוכנית: ${JSON.stringify(plan)}`,
       config: {
         systemInstruction: EXPERT_SYSTEM_INSTRUCTION,
         responseMimeType: "application/json",
@@ -135,7 +102,11 @@ export async function integrateFullPlanWithAI(plan: WorkPlan): Promise<WorkPlan>
               type: Type.ARRAY,
               items: {
                 type: Type.OBJECT,
-                properties: { id: { type: Type.STRING }, title: { type: Type.STRING }, aiRefinement: { type: Type.STRING } },
+                properties: { 
+                  id: { type: Type.STRING }, 
+                  title: { type: Type.STRING }, 
+                  aiRefinement: { type: Type.STRING } 
+                },
                 required: ["id", "title", "aiRefinement"]
               }
             },
@@ -152,7 +123,13 @@ export async function integrateFullPlanWithAI(plan: WorkPlan): Promise<WorkPlan>
                     type: Type.ARRAY,
                     items: {
                       type: Type.OBJECT,
-                      properties: { id: { type: Type.STRING }, description: { type: Type.STRING }, owner: { type: Type.STRING }, deadline: { type: Type.STRING }, isAiSuggested: { type: Type.BOOLEAN } },
+                      properties: { 
+                        id: { type: Type.STRING }, 
+                        description: { type: Type.STRING }, 
+                        owner: { type: Type.STRING }, 
+                        deadline: { type: Type.STRING }, 
+                        isAiSuggested: { type: Type.BOOLEAN } 
+                      },
                       required: ["id", "description", "owner", "deadline", "isAiSuggested"]
                     }
                   }
@@ -168,15 +145,10 @@ export async function integrateFullPlanWithAI(plan: WorkPlan): Promise<WorkPlan>
     });
 
     const text = response.text;
-    if (!text) throw new Error("Empty response");
+    if (!text) throw new Error("Empty AI response");
     return JSON.parse(cleanJsonString(text));
   } catch (error: any) {
-    console.error("Integration Error Details:", error);
-    // @ts-ignore
-    if (error.message?.includes("Requested entity was not found") && window.aistudio) {
-      // @ts-ignore
-      await window.aistudio.openSelectKey();
-    }
+    console.error("Integration Error:", error);
     throw error;
   }
 }
