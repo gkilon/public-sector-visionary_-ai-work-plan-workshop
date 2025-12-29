@@ -1,0 +1,7 @@
+{
+  "name": "Public Sector Visionary: AI Work-Plan Workshop",
+  "description": "An advanced workshop tool for public sector managers to build strategic work plans under uncertainty, combining philosophical ethos with practical execution.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
