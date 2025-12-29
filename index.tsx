@@ -1,21 +1,28 @@
 
 import React from 'react';
-import ReactDOM from 'react-dom/client';
+import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
 
-const rootElement = document.getElementById('root');
-if (!rootElement) {
-  throw new Error("Could not find root element to mount to");
-}
+console.log("🚀 Initializing application...");
 
-try {
-  const root = ReactDOM.createRoot(rootElement);
-  root.render(
-    <React.StrictMode>
-      <App />
-    </React.StrictMode>
-  );
-} catch (error) {
-  console.error("Failed to render app:", error);
-  rootElement.innerHTML = `<div style="color: white; padding: 20px; text-align: center;">שגיאה בטעינת האפליקציה. בדוק את הקונסול.</div>`;
+const container = document.getElementById('root');
+
+if (container) {
+  try {
+    const root = createRoot(container);
+    root.render(
+      <React.StrictMode>
+        <App />
+      </React.StrictMode>
+    );
+    console.log("✅ App rendered successfully.");
+  } catch (err) {
+    console.error("❌ Rendering failed:", err);
+    container.innerHTML = `<div style="color: white; text-align: center; padding: 50px;">
+      <h2>שגיאה בטעינת המערכת</h2>
+      <p>${err.message}</p>
+    </div>`;
+  }
+} else {
+  console.error("❌ Root container not found!");
 }

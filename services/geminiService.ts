@@ -2,11 +2,18 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { WorkPlan } from "../types.ts";
 
-// Helper to safely initialize AI only when key is present
+const getSafeApiKey = () => {
+  try {
+    return process.env.API_KEY || (window as any).process?.env?.API_KEY || "";
+  } catch {
+    return "";
+  }
+};
+
 const getAIInstance = () => {
-  const apiKey = process.env.API_KEY || (window as any).process?.env?.API_KEY;
+  const apiKey = getSafeApiKey();
   if (!apiKey) {
-    console.warn("⚠️ Gemini API Key is missing. AI suggestions will be unavailable.");
+    console.warn("⚠️ Gemini API Key missing.");
     return null;
   }
   return new GoogleGenAI({ apiKey });
@@ -33,7 +40,7 @@ async function callWithRetry<T>(fn: () => Promise<T>, maxRetries = 2): Promise<T
 
 export async function getMentorAdvice(stage: string, currentData: any) {
   const ai = getAIInstance();
-  if (!ai) return { content: "ייעוץ AI אינו זמין כרגע (חסר מפתח)", example: "", suggestions: [], philosophicalInsight: "" };
+  if (!ai) return { content: "שירות AI לא זמין", example: "", suggestions: [], philosophicalInsight: "נדרש מפתח API לפונקציונליות זו." };
 
   return callWithRetry(async () => {
     const response = await ai.models.generateContent({
@@ -61,7 +68,7 @@ export async function getMentorAdvice(stage: string, currentData: any) {
 
 export async function generateFunnelDraft(stage: string, currentData: any) {
   const ai = getAIInstance();
-  if (!ai) return { items: ["(AI לא זמין)"] };
+  if (!ai) return { items: ["(מפתח API חסר)"] };
 
   const prompt = `בהתבסס על SWOT: ${JSON.stringify(currentData.swot)}, תן 3 הצעות ל${stage}.`;
   

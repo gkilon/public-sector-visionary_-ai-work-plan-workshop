@@ -8,36 +8,14 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@200;400;600;700&family=Heebo:wght@300;500;800&display=swap" rel="stylesheet">
     
-    <!-- Babel standalone: Essential for running TSX/JSX directly in the browser -->
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-
     <script>
-        // Setup a global process object to prevent SDK crashes
-        window.process = { env: { API_KEY: "" } };
-        
-        // Babel custom preset for TSX and React
-        Babel.registerPreset("tsx-env", {
-            presets: [
-                [Babel.availablePresets["typescript"], { allExtensions: true, isTSX: true }],
-                [Babel.availablePresets["react"], { runtime: "automatic" }]
-            ]
-        });
+        // מניעת קריסת דפדפן בגישה ל-process.env
+        window.process = { 
+            env: { 
+                API_KEY: "" // נטליפיי יזריק את זה במידה והוגדר Environment Variable
+            } 
+        };
     </script>
-
-    <style>
-        body { font-family: 'Assistant', 'Heebo', sans-serif; background-color: #050a18; color: #e2e8f0; margin: 0; }
-        #root:empty::before {
-            content: 'טוען מערכת אסטרטגית...';
-            display: flex; align-items: center; justify-content: center; height: 100vh;
-            font-size: 1.5rem; font-weight: 800; color: #10b981; background: #050a18;
-            direction: rtl;
-        }
-        #error-overlay {
-            display: none; position: fixed; inset: 0; background: #0b1120;
-            z-index: 9999; padding: 40px; text-align: center; color: #f87171;
-            flex-direction: column; align-items: center; justify-content: center;
-        }
-    </style>
 
     <script type="importmap">
 {
@@ -52,33 +30,40 @@
   }
 }
 </script>
+
+    <!-- Babel standalone: הכרחי להרצת TSX ישירות בנטליפיי ללא שלב Build מקדים -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script>
+      Babel.registerPreset("tsx-env", {
+        presets: [
+          [Babel.availablePresets["typescript"], { allExtensions: true, isTSX: true }],
+          [Babel.availablePresets["react"], { runtime: "automatic" }]
+        ]
+      });
+    </script>
+
+    <style>
+        body { font-family: 'Assistant', 'Heebo', sans-serif; background-color: #050a18; color: #e2e8f0; margin: 0; }
+        #root:empty::before {
+            content: 'טוען מערכת אסטרטגית...';
+            display: flex; align-items: center; justify-content: center; height: 100vh;
+            font-size: 1.5rem; font-weight: 800; color: #10b981; background: #050a18;
+            direction: rtl;
+        }
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        @media print {
+            .print\:hidden { display: none !important; }
+            body { background: white !important; color: black !important; }
+        }
+    </style>
 </head>
 <body class="bg-[#050a18] antialiased">
-    <div id="error-overlay">
-        <h2 style="font-size: 2.5rem; font-weight: 900; margin-bottom: 20px;">שגיאה בטעינת המערכת</h2>
-        <p id="error-message" style="font-size: 1.2rem; max-width: 600px; opacity: 0.8;"></p>
-        <button onclick="location.reload()" style="margin-top: 30px; background: #10b981; color: white; padding: 12px 30px; border-radius: 12px; font-weight: bold;">נסה שוב</button>
-    </div>
-    
     <div id="root"></div>
-
-    <!-- Main entry point using Babel for runtime compilation -->
-    <script type="text/babel" data-presets="tsx-env" data-type="module">
-        import React from 'react';
-        import { createRoot } from 'react-dom/client';
-        import App from './App.tsx';
-
-        try {
-            const container = document.getElementById('root');
-            const root = createRoot(container);
-            root.render(<App />);
-        } catch (err) {
-            console.error("React Mount Error:", err);
-            const overlay = document.getElementById('error-overlay');
-            overlay.style.display = 'flex';
-            document.getElementById('error-message').innerText = 
-                "נראה שיש בעיה בטעינת הקבצים מהשרת. וודא שכל הקבצים (App.tsx, types.ts) נמצאים באותה תיקיה: " + err.message;
-        }
-    </script>
+    <!-- טעינת הקוד הראשי דרך בבל כדי שירוץ בנטליפיי -->
+    <script type="text/babel" data-presets="tsx-env" data-type="module" src="./index.tsx"></script>
 </body>
 </html>
