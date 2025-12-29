@@ -1,16 +1,18 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { WorkPlan } from "../types.ts";
 
-// פונקציה שבודקת בזהירות אם יש מפתח בלי להפיל את האתר
+/**
+ * שליפת מפתח ה-API בצורה בטוחה עבור סביבת Vite/Netlify
+ */
 const getSafeApiKey = (): string => {
   try {
     // @ts-ignore
-    const env = import.meta.env;
-    if (env && env.VITE_GEMINI_API_KEY) {
-      return env.VITE_GEMINI_API_KEY;
+    if (typeof import.meta !== 'undefined' && import.meta.env) {
+      // @ts-ignore
+      return import.meta.env.VITE_GEMINI_API_KEY || "";
     }
   } catch (e) {
-    // אם אנחנו בסביבה שלא מכירה את import.meta, הקוד לא יקרוס
+    console.warn("Environment settings not found, checking fallback...");
   }
   return "";
 };
@@ -40,7 +42,7 @@ const EXPERT_SYSTEM_INSTRUCTION = `
 async function createAIInstance() {
   const apiKey = getSafeApiKey();
   
-  // תמיכה בסטודיו של גוגל אם המפתח חסר
+  // תמיכה בסביבת AI Studio במידה והמפתח חסר
   // @ts-ignore
   if (!apiKey && typeof window !== 'undefined' && window.aistudio) {
     // @ts-ignore
@@ -51,14 +53,14 @@ async function createAIInstance() {
     }
   }
   
-  return new GoogleGenAI({ apiKey: apiKey });
+  return new GoogleGenAI({ apiKey: getSafeApiKey() });
 }
 
 export async function getMentorAdvice(stage: string, currentData: any) {
   try {
     const ai = await createAIInstance();
     const response = await ai.models.generateContent({
-      model: 'gemini-1.5-flash',
+      model: 'gemini-pro', // שינוי השם לגרסה היציבה
       contents: `שלב נוכחי: ${stage}. נתונים: ${JSON.stringify(currentData)}. תן ייעוץ קצר, דוגמה ותובנה.`,
       config: {
         systemInstruction: EXPERT_SYSTEM_INSTRUCTION,
@@ -87,7 +89,7 @@ export async function generateFunnelDraft(type: string, currentData: any) {
   try {
     const ai = await createAIInstance();
     const response = await ai.models.generateContent({
-      model: 'gemini-1.5-flash',
+      model: 'gemini-pro', // שינוי השם לגרסה היציבה
       contents: `ייצר 3 הצעות ל${type} עבור שפ"ח על בסיס: ${JSON.stringify(currentData)}`,
       config: {
         systemInstruction: EXPERT_SYSTEM_INSTRUCTION,
@@ -110,7 +112,7 @@ export async function integrateFullPlanWithAI(plan: WorkPlan): Promise<WorkPlan>
   try {
     const ai = await createAIInstance();
     const response = await ai.models.generateContent({
-      model: 'gemini-1.5-pro',
+      model: 'gemini-pro', // שינוי השם לגרסה היציבה
       contents: `בצע שכתוב אסטרטגי מלא: ${JSON.stringify(plan)}`,
       config: {
         systemInstruction: EXPERT_SYSTEM_INSTRUCTION,
