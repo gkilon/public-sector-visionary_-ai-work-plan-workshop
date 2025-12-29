@@ -7,28 +7,32 @@ const EXPERT_SYSTEM_INSTRUCTION = `
 תפקידך לשדרג תוכניות עבודה גולמיות לתוצר ברמה של מנכ"ל.
 אתה מתמקד בשימוש נכון ב-SWOT, חזון ואילוצים כדי ליצור מטרות ויעדים קוהרנטיים.
 הפלט חייב להיות JSON סדור ומדויק בלבד.
+אל תוסיף הסברים או טקסט מחוץ ל-JSON.
 `;
 
 export async function getMentorAdvice(stage: string, currentData: any) {
   const apiKey = process.env.API_KEY;
-  if (!apiKey) return null;
+  if (!apiKey) {
+    console.error("API_KEY missing");
+    return null;
+  }
   const ai = new GoogleGenAI({ apiKey });
 
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: `שלב נוכחי בסדנה: ${stage}. נתוני התוכנית עד כה: ${JSON.stringify(currentData)}. תן ייעוץ קצר וממוקד למנהל איך להמשיך מכאן.`,
+      contents: `שלב נוכחי בסדנה: ${stage}. נתוני התוכנית: ${JSON.stringify(currentData)}. תן ייעוץ קצר וממוקד למנהל.`,
       config: {
         systemInstruction: EXPERT_SYSTEM_INSTRUCTION,
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.OBJECT,
           properties: {
-            content: { type: Type.STRING, description: "הייעוץ העיקרי למנהל" },
-            example: { type: Type.STRING, description: "דוגמה לניסוח איכותי" },
-            nextStepConnection: { type: Type.STRING, description: "איך זה יתרום לשלב הבא" },
-            suggestions: { type: Type.ARRAY, items: { type: Type.STRING }, description: "3 הצעות קצרות" },
-            philosophicalInsight: { type: Type.STRING, description: "תובנה עמוקה על מנהיגות" }
+            content: { type: Type.STRING },
+            example: { type: Type.STRING },
+            nextStepConnection: { type: Type.STRING },
+            suggestions: { type: Type.ARRAY, items: { type: Type.STRING } },
+            philosophicalInsight: { type: Type.STRING }
           },
           required: ["content", "example", "nextStepConnection", "suggestions", "philosophicalInsight"]
         }
@@ -47,7 +51,7 @@ export async function generateFunnelDraft(stage: string, currentData: any) {
   const ai = new GoogleGenAI({ apiKey });
 
   try {
-    const prompt = `בהתבסס על ניתוח ה-SWOT והחזון: ${JSON.stringify(currentData)}, ייצר 3 הצעות ל${stage} שיהיו מקצועיות, חדות ורלוונטיות לשירות פסיכולוגי ציבורי.`;
+    const prompt = `בהתבסס על הנתונים הבאים: ${JSON.stringify(currentData)}, ייצר 3 הצעות ל${stage} מקצועיות לשירות פסיכולוגי ציבורי.`;
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: prompt,
@@ -74,7 +78,7 @@ export async function integrateFullPlanWithAI(plan: WorkPlan): Promise<WorkPlan>
   const ai = new GoogleGenAI({ apiKey });
 
   try {
-    const prompt = `בצע שכתוב אסטרטגי ואינטגרציה מלאה לכל חלקי התוכנית: ${JSON.stringify(plan)}. הפוך אותה לחדה, מקצועית וקוהרנטית. שים לב במיוחד לחיבור בין ה-SWOT למטרות.`;
+    const prompt = `בצע שכתוב אסטרטגי מלא לכל חלקי התוכנית: ${JSON.stringify(plan)}. הפוך אותה לחדה ומקצועית.`;
     const response = await ai.models.generateContent({
       model: 'gemini-3-pro-preview',
       contents: prompt,
